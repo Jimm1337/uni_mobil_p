@@ -25,7 +25,7 @@
  * Sample Api Controller.
  */
 class MobilController : public oatpp::web::server::api::ApiController {
-  MobilService m_userService; // Create user service.
+  MobilService service; // Create user service.
 
 public:
   /**
@@ -70,10 +70,16 @@ public:
       std::shared_ptr<
         oatpp::web::server::handler::DefaultBasicAuthorizationObject >,
       authObject)) {
-    auto dto     = DtoError::createShared();
-    dto->type    = ErrorType::SERVER_IMPLEMENTATION;
-    dto->message = "This endpoint is not implemented";
-    return createDtoResponse(Status::CODE_501, dto);
+    if (service.authorize(authObject) == MobilService::Auth::BAD_CREDENTIALS)
+    {
+      auto dto     = DtoError::createShared();
+      dto->type    = ErrorType::AUTH_BAD_CREDENTIALS;
+      dto->message = "Bad credentials";
+      return createDtoResponse(Status::CODE_401, dto);
+    }
+
+    const auto [status, response] = service.POST_login(authObject->userId);
+    return createDtoResponse(status, response);
   }
   ADD_CORS(postLogin, "*", "POST")
 
@@ -96,10 +102,9 @@ public:
     "/register",
     postRegister,
     BODY_DTO(Object< DtoRegister_IN >, registerData)) {
-    auto dto     = DtoError::createShared();
-    dto->type    = ErrorType::SERVER_IMPLEMENTATION;
-    dto->message = "This endpoint is not implemented";
-    return createDtoResponse(Status::CODE_501, dto);
+    const auto [status, response] = service.POST_register(
+      registerData->Username, registerData->Login, registerData->Password);
+        return createDtoResponse(status, response);
   }
   ADD_CORS(postRegister, "*", "POST")
 
@@ -107,6 +112,8 @@ public:
     info->summary = "Logout user.";
     info->addResponse< Object< DtoError > >(
       Status::CODE_500, "application/json");
+    info->addResponse< Object< DtoError > >(
+      Status::CODE_401, "application/json");
     info->addResponse< String >(Status::CODE_401, "text/plain");
     info->addTag("Login");
     info->addSecurityRequirement("Login");
@@ -119,7 +126,16 @@ public:
       std::shared_ptr<
         oatpp::web::server::handler::DefaultBasicAuthorizationObject >,
       authObject)) {
-    return createResponse(Status::CODE_401, "");
+    if (service.authorize(authObject) == MobilService::Auth::BAD_CREDENTIALS)
+    {
+      auto dto     = DtoError::createShared();
+      dto->type    = ErrorType::AUTH_BAD_CREDENTIALS;
+      dto->message = "Bad credentials";
+      return createDtoResponse(Status::CODE_401, dto);
+    }
+
+    const auto [status, response] = service.GET_logout();
+    return createDtoResponse(status, response);
   }
   ADD_CORS(getLogout, "*", "GET")
 
@@ -131,6 +147,8 @@ public:
       "placeID, name, location, description)";
     info->addResponse< Object< DtoError > >(
       Status::CODE_500, "application/json");
+    info->addResponse< Object< DtoError > >(
+      Status::CODE_401, "application/json");
     info->addResponse< String >(Status::CODE_204, "text/plain");
     info->addResponse< List< Object< DtoPlace_OUT > > >(
       Status::CODE_200, "application/json");
@@ -146,10 +164,16 @@ public:
       std::shared_ptr<
         oatpp::web::server::handler::DefaultBasicAuthorizationObject >,
       authObject)) {
-    auto dto     = DtoError::createShared();
-    dto->type    = ErrorType::SERVER_IMPLEMENTATION;
-    dto->message = "This endpoint is not implemented";
-    return createDtoResponse(Status::CODE_501, dto);
+    if (service.authorize(authObject) == MobilService::Auth::BAD_CREDENTIALS)
+    {
+      auto dto     = DtoError::createShared();
+      dto->type    = ErrorType::AUTH_BAD_CREDENTIALS;
+      dto->message = "Bad credentials";
+      return createDtoResponse(Status::CODE_401, dto);
+    }
+
+    const auto [status, response] = service.GET_places(queryParams);
+    return createDtoResponse(status, response);
   }
   ADD_CORS(getPlaces, "*", "GET")
 
@@ -158,6 +182,8 @@ public:
                     "(QueryParams: userID, username)";
     info->addResponse< Object< DtoError > >(
       Status::CODE_500, "application/json");
+    info->addResponse< Object< DtoError > >(
+      Status::CODE_401, "application/json");
     info->addResponse< String >(Status::CODE_204, "text/plain");
     info->addResponse< List< Object< DtoUser_OUT > > >(
       Status::CODE_200, "application/json");
@@ -173,10 +199,16 @@ public:
       std::shared_ptr<
         oatpp::web::server::handler::DefaultBasicAuthorizationObject >,
       authObject)) {
-    auto dto     = DtoError::createShared();
-    dto->type    = ErrorType::SERVER_IMPLEMENTATION;
-    dto->message = "This endpoint is not implemented";
-    return createDtoResponse(Status::CODE_501, dto);
+    if (service.authorize(authObject) == MobilService::Auth::BAD_CREDENTIALS)
+    {
+      auto dto     = DtoError::createShared();
+      dto->type    = ErrorType::AUTH_BAD_CREDENTIALS;
+      dto->message = "Bad credentials";
+      return createDtoResponse(Status::CODE_401, dto);
+    }
+
+    const auto [status, response] = service.GET_users(queryParams);
+    return createDtoResponse(status, response);
   }
   ADD_CORS(getUsers, "*", "GET")
 
@@ -189,6 +221,8 @@ public:
       Status::CODE_416, "application/json");
     info->addResponse< Object< DtoError > >(
       Status::CODE_404, "application/json");
+    info->addResponse< Object< DtoError > >(
+      Status::CODE_401, "application/json");
     info->addResponse< List< Object< DtoComment_OUT > > >(
       Status::CODE_200, "application/json");
     info->addTag("User");
@@ -198,17 +232,23 @@ public:
     "GET",
     "/comments/{placeID}",
     getCommentsForPlace,
-    PATH(String, placeID),
+    PATH(Int32, placeID),
     QUERY(Int32, start),
     QUERY(Int32, end),
     AUTHORIZATION(
       std::shared_ptr<
         oatpp::web::server::handler::DefaultBasicAuthorizationObject >,
       authObject)) {
-    auto dto     = DtoError::createShared();
-    dto->type    = ErrorType::SERVER_IMPLEMENTATION;
-    dto->message = "This endpoint is not implemented";
-    return createDtoResponse(Status::CODE_501, dto);
+    if (service.authorize(authObject) == MobilService::Auth::BAD_CREDENTIALS)
+    {
+      auto dto     = DtoError::createShared();
+      dto->type    = ErrorType::AUTH_BAD_CREDENTIALS;
+      dto->message = "Bad credentials";
+      return createDtoResponse(Status::CODE_401, dto);
+    }
+
+    const auto [status, response] = service.GET_comments(placeID, start, end);
+    return createDtoResponse(status, response);
   }
   ADD_CORS(getCommentsForPlace, "*", "GET")
 
@@ -221,6 +261,8 @@ public:
       Status::CODE_416, "application/json");
     info->addResponse< Object< DtoError > >(
       Status::CODE_404, "application/json");
+    info->addResponse< Object< DtoError > >(
+      Status::CODE_401, "application/json");
     info->addResponse< List< Object< DtoVisit_OUT > > >(
       Status::CODE_200, "application/json");
     info->addTag("User");
@@ -230,17 +272,24 @@ public:
     "GET",
     "/visits/place/{placeID}",
     getVisitsForPlace,
-    PATH(String, placeID),
+    PATH(Int32, placeID),
     QUERY(Int32, start),
     QUERY(Int32, end),
     AUTHORIZATION(
       std::shared_ptr<
         oatpp::web::server::handler::DefaultBasicAuthorizationObject >,
       authObject)) {
-    auto dto     = DtoError::createShared();
-    dto->type    = ErrorType::SERVER_IMPLEMENTATION;
-    dto->message = "This endpoint is not implemented";
-    return createDtoResponse(Status::CODE_501, dto);
+    if (service.authorize(authObject) == MobilService::Auth::BAD_CREDENTIALS)
+    {
+      auto dto     = DtoError::createShared();
+      dto->type    = ErrorType::AUTH_BAD_CREDENTIALS;
+      dto->message = "Bad credentials";
+      return createDtoResponse(Status::CODE_401, dto);
+    }
+
+    const auto [status, response] =
+      service.GET_visitsByPlace(placeID, start, end);
+    return createDtoResponse(status, response);
   }
   ADD_CORS(getVisitsForPlace, "*", "GET")
 
@@ -253,6 +302,8 @@ public:
       Status::CODE_416, "application/json");
     info->addResponse< Object< DtoError > >(
       Status::CODE_404, "application/json");
+    info->addResponse< Object< DtoError > >(
+      Status::CODE_401, "application/json");
     info->addResponse< List< Object< DtoVisit_OUT > > >(
       Status::CODE_200, "application/json");
     info->addTag("User");
@@ -262,17 +313,24 @@ public:
     "GET",
     "/visits/user/{userID}",
     getVisitsForUser,
-    PATH(String, userID),
+    PATH(Int32, userID),
     QUERY(Int32, start),
     QUERY(Int32, end),
     AUTHORIZATION(
       std::shared_ptr<
         oatpp::web::server::handler::DefaultBasicAuthorizationObject >,
       authObject)) {
-    auto dto     = DtoError::createShared();
-    dto->type    = ErrorType::SERVER_IMPLEMENTATION;
-    dto->message = "This endpoint is not implemented";
-    return createDtoResponse(Status::CODE_501, dto);
+    if (service.authorize(authObject) == MobilService::Auth::BAD_CREDENTIALS)
+    {
+      auto dto     = DtoError::createShared();
+      dto->type    = ErrorType::AUTH_BAD_CREDENTIALS;
+      dto->message = "Bad credentials";
+      return createDtoResponse(Status::CODE_401, dto);
+    }
+
+    const auto [status, response] =
+      service.GET_visitsByUser(userID, start, end);
+    return createDtoResponse(status, response);
   }
   ADD_CORS(getVisitsForUser, "*", "GET")
 
@@ -282,6 +340,8 @@ public:
       Status::CODE_500, "application/json");
     info->addResponse< Object< DtoError > >(
       Status::CODE_416, "application/json");
+    info->addResponse< Object< DtoError > >(
+      Status::CODE_401, "application/json");
     info->addResponse< List< Object< DtoUser_OUT > > >(
       Status::CODE_200, "application/json");
     info->addTag("User");
@@ -297,10 +357,16 @@ public:
       std::shared_ptr<
         oatpp::web::server::handler::DefaultBasicAuthorizationObject >,
       authObject)) {
-    auto dto     = DtoError::createShared();
-    dto->type    = ErrorType::SERVER_IMPLEMENTATION;
-    dto->message = "This endpoint is not implemented";
-    return createDtoResponse(Status::CODE_501, dto);
+    if (service.authorize(authObject) == MobilService::Auth::BAD_CREDENTIALS)
+    {
+      auto dto     = DtoError::createShared();
+      dto->type    = ErrorType::AUTH_BAD_CREDENTIALS;
+      dto->message = "Bad credentials";
+      return createDtoResponse(Status::CODE_401, dto);
+    }
+
+    const auto [status, response] = service.GET_ranking(start, end);
+    return createDtoResponse(status, response);
   }
   ADD_CORS(getUserRanking, "*", "GET")
 
@@ -312,6 +378,8 @@ public:
       Status::CODE_422, "application/json");
     info->addResponse< Object< DtoError > >(
       Status::CODE_409, "application/json");
+    info->addResponse< Object< DtoError > >(
+      Status::CODE_401, "application/json");
     info->addResponse< Object< DtoVisit_OUT > >(
       Status::CODE_201, "application/json");
     info->addTag("User");
@@ -326,10 +394,17 @@ public:
       std::shared_ptr<
         oatpp::web::server::handler::DefaultBasicAuthorizationObject >,
       authObject)) {
-    auto dto     = DtoError::createShared();
-    dto->type    = ErrorType::SERVER_IMPLEMENTATION;
-    dto->message = "This endpoint is not implemented";
-    return createDtoResponse(Status::CODE_501, dto);
+    if (service.authorize(authObject) == MobilService::Auth::BAD_CREDENTIALS)
+    {
+      auto dto     = DtoError::createShared();
+      dto->type    = ErrorType::AUTH_BAD_CREDENTIALS;
+      dto->message = "Bad credentials";
+      return createDtoResponse(Status::CODE_401, dto);
+    }
+
+    const auto [status, response] =
+      service.POST_visits(authObject->userId, key);
+    return createDtoResponse(status, response);
   }
   ADD_CORS(postVisits, "*", "POST")
 
@@ -341,6 +416,8 @@ public:
       Status::CODE_422, "application/json");
     info->addResponse< Object< DtoError > >(
       Status::CODE_412, "application/json");
+    info->addResponse< Object< DtoError > >(
+      Status::CODE_401, "application/json");
     info->addResponse< Object< DtoComment_OUT > >(
       Status::CODE_201, "application/json");
     info->addConsumes< Object< DtoComment_IN > >(
@@ -357,10 +434,17 @@ public:
       std::shared_ptr<
         oatpp::web::server::handler::DefaultBasicAuthorizationObject >,
       authObject)) {
-    auto dto     = DtoError::createShared();
-    dto->type    = ErrorType::SERVER_IMPLEMENTATION;
-    dto->message = "This endpoint is not implemented";
-    return createDtoResponse(Status::CODE_501, dto);
+    if (service.authorize(authObject) == MobilService::Auth::BAD_CREDENTIALS)
+    {
+      auto dto     = DtoError::createShared();
+      dto->type    = ErrorType::AUTH_BAD_CREDENTIALS;
+      dto->message = "Bad credentials";
+      return createDtoResponse(Status::CODE_401, dto);
+    }
+
+    const auto [status, response] = service.POST_comments(
+      authObject->userId, comment->PlaceID, comment->Content);
+    return createDtoResponse(status, response);
   }
   ADD_CORS(postAddComments, "*", "POST")
 
@@ -376,6 +460,8 @@ public:
       Status::CODE_204, "application/json");
     info->addResponse< Object< DtoError > >(
       Status::CODE_403, "application/json");
+    info->addResponse< Object< DtoError > >(
+      Status::CODE_401, "application/json");
     info->addResponse< Object< DtoPlace_OUT > >(
       Status::CODE_201, "application/json");
     info->addConsumes< Object< DtoPlace_IN > >(
@@ -392,10 +478,23 @@ public:
       std::shared_ptr<
         oatpp::web::server::handler::DefaultBasicAuthorizationObject >,
       authObject)) {
-    auto dto     = DtoError::createShared();
-    dto->type    = ErrorType::SERVER_IMPLEMENTATION;
-    dto->message = "This endpoint is not implemented";
-    return createDtoResponse(Status::CODE_501, dto);
+    const auto auth = service.authorize(authObject);
+
+    if (auth == MobilService::Auth::BAD_CREDENTIALS)
+    {
+      auto dto     = DtoError::createShared();
+      dto->type    = ErrorType::AUTH_BAD_CREDENTIALS;
+      dto->message = "Bad credentials";
+      return createDtoResponse(Status::CODE_401, dto);
+    } else if (auth == MobilService::Auth::USER) {
+      auto dto     = DtoError::createShared();
+      dto->type    = ErrorType::AUTH_PERMISSION;
+      dto->message = "Insufficient permission";
+      return createDtoResponse(Status::CODE_403, dto);
+    }
+
+    const auto [status, response] = service.PUT_places(
+      place->Name, place->Description, place->Location, place->Key);
   }
   ADD_CORS(putAdminAddUpdatePlaces, "*", "PUT")
 
@@ -407,6 +506,8 @@ public:
       Status::CODE_404, "application/json");
     info->addResponse< Object< DtoError > >(
       Status::CODE_403, "application/json");
+    info->addResponse< Object< DtoError > >(
+      Status::CODE_401, "application/json");
     info->addResponse< String >(Status::CODE_204, "text/plain");
     info->addTag("Admin");
     info->addSecurityRequirement("Admin");
@@ -415,15 +516,28 @@ public:
     "DELETE",
     "/places",
     deleteAdminRemovePlaces,
-    QUERY(String, placeID),
+    QUERY(Int32, placeID),
     AUTHORIZATION(
       std::shared_ptr<
         oatpp::web::server::handler::DefaultBasicAuthorizationObject >,
       authObject)) {
-    auto dto     = DtoError::createShared();
-    dto->type    = ErrorType::SERVER_IMPLEMENTATION;
-    dto->message = "This endpoint is not implemented";
-    return createDtoResponse(Status::CODE_501, dto);
+    const auto auth = service.authorize(authObject);
+
+    if (auth == MobilService::Auth::BAD_CREDENTIALS)
+    {
+      auto dto     = DtoError::createShared();
+      dto->type    = ErrorType::AUTH_BAD_CREDENTIALS;
+      dto->message = "Bad credentials";
+      return createDtoResponse(Status::CODE_401, dto);
+    } else if (auth == MobilService::Auth::USER) {
+      auto dto     = DtoError::createShared();
+      dto->type    = ErrorType::AUTH_PERMISSION;
+      dto->message = "Insufficient permission";
+      return createDtoResponse(Status::CODE_403, dto);
+    }
+
+    const auto [status, response] = service.DELETE_places(placeID);
+    return createDtoResponse(status, response);
   }
   ADD_CORS(deleteAdminRemovePlaces, "*", "DELETE")
 
@@ -435,6 +549,8 @@ public:
       Status::CODE_422, "application/json");
     info->addResponse< Object< DtoError > >(
       Status::CODE_403, "application/json");
+    info->addResponse< Object< DtoError > >(
+      Status::CODE_401, "application/json");
     info->addResponse< Object< DtoUser_OUT > >(
       Status::CODE_204, "application/json");
     info->addResponse< Object< DtoUser_OUT > >(
@@ -452,10 +568,24 @@ public:
       std::shared_ptr<
         oatpp::web::server::handler::DefaultBasicAuthorizationObject >,
       authObject)) {
-    auto dto     = DtoError::createShared();
-    dto->type    = ErrorType::SERVER_IMPLEMENTATION;
-    dto->message = "This endpoint is not implemented";
-    return createDtoResponse(Status::CODE_501, dto);
+    const auto auth = service.authorize(authObject);
+
+    if (auth == MobilService::Auth::BAD_CREDENTIALS)
+    {
+      auto dto     = DtoError::createShared();
+      dto->type    = ErrorType::AUTH_BAD_CREDENTIALS;
+      dto->message = "Bad credentials";
+      return createDtoResponse(Status::CODE_401, dto);
+    } else if (auth == MobilService::Auth::USER) {
+      auto dto     = DtoError::createShared();
+      dto->type    = ErrorType::AUTH_PERMISSION;
+      dto->message = "Insufficient permission";
+      return createDtoResponse(Status::CODE_403, dto);
+    }
+
+    const auto [status, response] = service.PUT_users(
+      user->Username, user->Login, user->Password, user->Admin, user->Points);
+    return createDtoResponse(status, response);
   }
   ADD_CORS(putAdminAddUpdateUsers, "*", "PUT")
 
@@ -467,6 +597,8 @@ public:
       Status::CODE_404, "application/json");
     info->addResponse< Object< DtoError > >(
       Status::CODE_403, "application/json");
+    info->addResponse< Object< DtoError > >(
+      Status::CODE_401, "application/json");
     info->addResponse< String >(Status::CODE_204, "text/plain");
     info->addTag("Admin");
     info->addSecurityRequirement("Admin");
@@ -475,15 +607,28 @@ public:
     "DELETE",
     "/users",
     deleteAdminRemoveUsers,
-    QUERY(String, userID),
+    QUERY(Int32, userID),
     AUTHORIZATION(
       std::shared_ptr<
         oatpp::web::server::handler::DefaultBasicAuthorizationObject >,
       authObject)) {
-    auto dto     = DtoError::createShared();
-    dto->type    = ErrorType::SERVER_IMPLEMENTATION;
-    dto->message = "This endpoint is not implemented";
-    return createDtoResponse(Status::CODE_501, dto);
+    const auto auth = service.authorize(authObject);
+
+    if (auth == MobilService::Auth::BAD_CREDENTIALS)
+    {
+      auto dto     = DtoError::createShared();
+      dto->type    = ErrorType::AUTH_BAD_CREDENTIALS;
+      dto->message = "Bad credentials";
+      return createDtoResponse(Status::CODE_401, dto);
+    } else if (auth == MobilService::Auth::USER) {
+      auto dto     = DtoError::createShared();
+      dto->type    = ErrorType::AUTH_PERMISSION;
+      dto->message = "Insufficient permission";
+      return createDtoResponse(Status::CODE_403, dto);
+    }
+
+    const auto [status, response] = service.DELETE_users(userID);
+    return createDtoResponse(status, response);
   }
   ADD_CORS(deleteAdminRemoveUsers, "*", "DELETE")
 
@@ -495,6 +640,8 @@ public:
       Status::CODE_422, "application/json");
     info->addResponse< Object< DtoError > >(
       Status::CODE_403, "application/json");
+    info->addResponse< Object< DtoError > >(
+      Status::CODE_401, "application/json");
     info->addResponse< Object< DtoComment_OUT > >(
       Status::CODE_204, "application/json");
     info->addResponse< Object< DtoComment_OUT > >(
@@ -513,10 +660,24 @@ public:
       std::shared_ptr<
         oatpp::web::server::handler::DefaultBasicAuthorizationObject >,
       authObject)) {
-    auto dto     = DtoError::createShared();
-    dto->type    = ErrorType::SERVER_IMPLEMENTATION;
-    dto->message = "This endpoint is not implemented";
-    return createDtoResponse(Status::CODE_501, dto);
+    const auto auth = service.authorize(authObject);
+
+    if (auth == MobilService::Auth::BAD_CREDENTIALS)
+    {
+      auto dto     = DtoError::createShared();
+      dto->type    = ErrorType::AUTH_BAD_CREDENTIALS;
+      dto->message = "Bad credentials";
+      return createDtoResponse(Status::CODE_401, dto);
+    } else if (auth == MobilService::Auth::USER) {
+      auto dto     = DtoError::createShared();
+      dto->type    = ErrorType::AUTH_PERMISSION;
+      dto->message = "Insufficient permission";
+      return createDtoResponse(Status::CODE_403, dto);
+    }
+
+    const auto [status, response] = service.PUT_comments(
+      comment->UserID, comment->PlaceID, comment->Content, comment->Likes);
+    return createDtoResponse(status, response);
   }
   ADD_CORS(putAdminAddUpdateComments, "*", "PUT")
 
@@ -528,6 +689,8 @@ public:
       Status::CODE_404, "application/json");
     info->addResponse< Object< DtoError > >(
       Status::CODE_403, "application/json");
+    info->addResponse< Object< DtoError > >(
+      Status::CODE_401, "application/json");
     info->addResponse< String >(Status::CODE_204, "text/plain");
     info->addTag("Admin");
     info->addSecurityRequirement("Admin");
@@ -536,15 +699,28 @@ public:
     "DELETE",
     "/comments",
     deleteAdminRemoveComments,
-    QUERY(String, commentID),
+    QUERY(Int32, commentID),
     AUTHORIZATION(
       std::shared_ptr<
         oatpp::web::server::handler::DefaultBasicAuthorizationObject >,
       authObject)) {
-    auto dto     = DtoError::createShared();
-    dto->type    = ErrorType::SERVER_IMPLEMENTATION;
-    dto->message = "This endpoint is not implemented";
-    return createDtoResponse(Status::CODE_501, dto);
+    const auto auth = service.authorize(authObject);
+
+    if (auth == MobilService::Auth::BAD_CREDENTIALS)
+    {
+      auto dto     = DtoError::createShared();
+      dto->type    = ErrorType::AUTH_BAD_CREDENTIALS;
+      dto->message = "Bad credentials";
+      return createDtoResponse(Status::CODE_401, dto);
+    } else if (auth == MobilService::Auth::USER) {
+      auto dto     = DtoError::createShared();
+      dto->type    = ErrorType::AUTH_PERMISSION;
+      dto->message = "Insufficient permission";
+      return createDtoResponse(Status::CODE_403, dto);
+    }
+
+    const auto [status, response] = service.DELETE_comments(commentID);
+    return createDtoResponse(status, response);
   }
   ADD_CORS(deleteAdminRemoveComments, "*", "DELETE")
 
@@ -556,6 +732,8 @@ public:
       Status::CODE_422, "application/json");
     info->addResponse< Object< DtoError > >(
       Status::CODE_403, "application/json");
+    info->addResponse< Object< DtoError > >(
+      Status::CODE_401, "application/json");
     info->addResponse< Object< DtoVisit_OUT > >(
       Status::CODE_204, "application/json");
     info->addResponse< Object< DtoVisit_OUT > >(
@@ -574,10 +752,24 @@ public:
       std::shared_ptr<
         oatpp::web::server::handler::DefaultBasicAuthorizationObject >,
       authObject)) {
-    auto dto     = DtoError::createShared();
-    dto->type    = ErrorType::SERVER_IMPLEMENTATION;
-    dto->message = "This endpoint is not implemented";
-    return createDtoResponse(Status::CODE_501, dto);
+    const auto auth = service.authorize(authObject);
+
+    if (auth == MobilService::Auth::BAD_CREDENTIALS)
+    {
+      auto dto     = DtoError::createShared();
+      dto->type    = ErrorType::AUTH_BAD_CREDENTIALS;
+      dto->message = "Bad credentials";
+      return createDtoResponse(Status::CODE_401, dto);
+    } else if (auth == MobilService::Auth::USER) {
+      auto dto     = DtoError::createShared();
+      dto->type    = ErrorType::AUTH_PERMISSION;
+      dto->message = "Insufficient permission";
+      return createDtoResponse(Status::CODE_403, dto);
+    }
+
+    const auto [status, response] =
+      service.PUT_visits(visit->UserID, visit->PlaceID);
+    return createDtoResponse(status, response);
   }
   ADD_CORS(putAdminAddUpdateVisits, "*", "PUT")
 
@@ -589,6 +781,8 @@ public:
       Status::CODE_404, "application/json");
     info->addResponse< Object< DtoError > >(
       Status::CODE_403, "application/json");
+    info->addResponse< Object< DtoError > >(
+      Status::CODE_401, "application/json");
     info->addResponse< String >(Status::CODE_204, "text/plain");
     info->addTag("Admin");
     info->addSecurityRequirement("Admin");
@@ -597,15 +791,28 @@ public:
     "DELETE",
     "/visits",
     deleteAdminRemoveVisits,
-    QUERY(String, visitID),
+    QUERY(Int32, visitID),
     AUTHORIZATION(
       std::shared_ptr<
         oatpp::web::server::handler::DefaultBasicAuthorizationObject >,
       authObject)) {
-    auto dto     = DtoError::createShared();
-    dto->type    = ErrorType::SERVER_IMPLEMENTATION;
-    dto->message = "This endpoint is not implemented";
-    return createDtoResponse(Status::CODE_501, dto);
+    const auto auth = service.authorize(authObject);
+
+    if (auth == MobilService::Auth::BAD_CREDENTIALS)
+    {
+      auto dto     = DtoError::createShared();
+      dto->type    = ErrorType::AUTH_BAD_CREDENTIALS;
+      dto->message = "Bad credentials";
+      return createDtoResponse(Status::CODE_401, dto);
+    } else if (auth == MobilService::Auth::USER) {
+      auto dto     = DtoError::createShared();
+      dto->type    = ErrorType::AUTH_PERMISSION;
+      dto->message = "Insufficient permission";
+      return createDtoResponse(Status::CODE_403, dto);
+    }
+
+    const auto [status, response] = service.DELETE_visits(visitID);
+    return createDtoResponse(status, response);
   }
   ADD_CORS(deleteAdminRemoveVisits, "*", "DELETE")
 };

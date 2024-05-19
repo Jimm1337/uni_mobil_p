@@ -22,7 +22,8 @@ ENUM(
   VALUE(PRECOND_USER_NO_VISIT, 7, "User did not visit commented site"), // 412
   VALUE(INPUT_BAD_STRUCTURE, 8, "Input data has bad structure"), // 422
   VALUE(AUTH_PERMISSION, 9, "Insufficient permission"), // 403
-  VALUE(DATA_FORMAT, 10, "Data format error")); // 400
+  VALUE(DATA_FORMAT, 10, "Data format error"), // 400
+  VALUE(AUTH_BAD_CREDENTIALS, 11, "Bad credentials")); // 401;
 
 #include OATPP_CODEGEN_END(DTO)
 
