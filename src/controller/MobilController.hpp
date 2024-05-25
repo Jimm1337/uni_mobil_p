@@ -104,7 +104,7 @@ public:
     BODY_DTO(Object< DtoRegister_IN >, registerData)) {
     const auto [status, response] = service.POST_register(
       registerData->Username, registerData->Login, registerData->Password);
-        return createDtoResponse(status, response);
+    return createDtoResponse(status, response);
   }
   ADD_CORS(postRegister, "*", "POST")
 
@@ -495,6 +495,7 @@ public:
 
     const auto [status, response] = service.PUT_places(
       place->Name, place->Description, place->Location, place->Key);
+    return createDtoResponse(status, response);
   }
   ADD_CORS(putAdminAddUpdatePlaces, "*", "PUT")
 

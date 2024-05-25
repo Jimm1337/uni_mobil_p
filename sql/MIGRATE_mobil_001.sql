@@ -220,21 +220,23 @@ BEGIN
 END
 $$;
 
-CREATE OR REPLACE FUNCTION F_EXISTS_COMMENTS(arg_user_id INT, arg_place_id INT, arg_content VARCHAR(500))
+CREATE OR REPLACE FUNCTION F_EXISTS_COMMENTS(arg_user_id INT, arg_place_id INT)
     RETURNS TABLE
             (
-                ID INT
+                ID       INT,
+                Content  VARCHAR(500),
+                TimeStmp TIMESTAMP
             )
     LANGUAGE plpgsql
 AS
 $$
 BEGIN
     RETURN QUERY
-        SELECT ID
+        SELECT ID, Content, TimeStmp
         FROM Comments
         WHERE UserID = arg_user_id
           AND PlaceID = arg_place_id
-          AND Content = arg_content;
+        ORDER BY TimeStmp DESC;
 END
 $$;
 
@@ -345,7 +347,7 @@ BEGIN
 END
 $$;
 
-CREATE OR REPLACE FUNCTION F_GET_PLACES_DESC(arg_desc VARCHAR(500))
+CREATE OR REPLACE FUNCTION F_GET_PLACES_DESCRIPTION(arg_desc VARCHAR(500))
     RETURNS TABLE
             (
                 ID          INT,
@@ -407,7 +409,7 @@ BEGIN
 END
 $$;
 
-CREATE OR REPLACE FUNCTION F_GET_COMMENTS(arg_place_id INT, arg_range_start INT, arg_range_end INT)
+CREATE OR REPLACE FUNCTION F_GET_COMMENTS(arg_place_id INT)
     RETURNS TABLE
             (
                 ID       INT,
@@ -429,12 +431,11 @@ BEGIN
                Likes
         FROM Comments
         WHERE PlaceID = arg_place_id
-        ORDER BY TimeStmp DESC
-        OFFSET arg_range_start LIMIT arg_range_end - arg_range_start;
+        ORDER BY TimeStmp DESC;
 END
 $$;
 
-CREATE OR REPLACE FUNCTION F_GET_VISITS_PLACE(arg_place_id INT, arg_range_start INT, arg_range_end INT)
+CREATE OR REPLACE FUNCTION F_GET_VISITS_PLACE(arg_place_id INT)
     RETURNS TABLE
             (
                 ID       INT,
@@ -453,12 +454,11 @@ BEGIN
                TimeStmp
         FROM Visits
         WHERE PlaceID = arg_place_id
-        ORDER BY TimeStmp DESC
-        OFFSET arg_range_start LIMIT arg_range_end - arg_range_start;
+        ORDER BY TimeStmp DESC;
 END
 $$;
 
-CREATE OR REPLACE FUNCTION F_GET_VISITS_USER(arg_user_id INT, arg_range_start INT, arg_range_end INT)
+CREATE OR REPLACE FUNCTION F_GET_VISITS_USER(arg_user_id INT)
     RETURNS TABLE
             (
                 ID       INT,
@@ -477,12 +477,11 @@ BEGIN
                TimeStmp
         FROM Visits
         WHERE UserID = arg_user_id
-        ORDER BY TimeStmp DESC
-        OFFSET arg_range_start LIMIT arg_range_end - arg_range_start;
+        ORDER BY TimeStmp DESC;
 END
 $$;
 
-CREATE OR REPLACE FUNCTION F_GET_RANKING(arg_range_start INT, arg_range_end INT)
+CREATE OR REPLACE FUNCTION F_GET_RANKING()
     RETURNS TABLE
             (
                 ID       INT,
@@ -497,8 +496,7 @@ BEGIN
         SELECT ID,
                Username,
                Points
-        FROM Ranking
-        OFFSET arg_range_start LIMIT arg_range_end - arg_range_start;
+        FROM Ranking;
 END
 $$;
 
@@ -793,8 +791,7 @@ BEGIN
 END
 $$;
 
-CREATE OR REPLACE FUNCTION F_PUT_COMMENTS_INSERT(arg_user_id INT, arg_place_id INT, arg_content VARCHAR(500),
-                                                 arg_likes INT)
+CREATE OR REPLACE FUNCTION F_PUT_COMMENTS_INSERT(arg_user_id INT, arg_place_id INT, arg_content VARCHAR(500))
     RETURNS TABLE
             (
                 ID       INT,
@@ -809,8 +806,8 @@ AS
 $$
 BEGIN
     RETURN QUERY
-        INSERT INTO Comments (UserID, PlaceID, Content, Likes)
-            VALUES (arg_user_id, arg_place_id, arg_content, arg_likes)
+        INSERT INTO Comments (UserID, PlaceID, Content)
+            VALUES (arg_user_id, arg_place_id, arg_content)
             RETURNING ID, UserID, PlaceID, Content, TimeStmp, Likes;
 END
 $$;
