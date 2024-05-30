@@ -26,11 +26,12 @@ public:
   enum class Auth : std::int_fast8_t {
     BAD_CREDENTIALS = 0,
     USER            = 1,
-    ADMIN           = 2
+    ADMIN           = 2,
+    ERR             = 3
   };
 
   // LOGIN API ENDPOINTS -------------------------------------------------------
-  Response POST_login(const oatpp::String& username);
+  Response POST_login(const oatpp::String& login);
   Response POST_register(
     const oatpp::String& username,
     const oatpp::String& login,
@@ -58,6 +59,7 @@ public:
     const oatpp::String& authUser,
     const oatpp::Int32&  placeId,
     const oatpp::String& content);
+
   // ADMIN API ENDPOINTS -------------------------------------------------------
   Response PUT_places(
     const oatpp::String& name,

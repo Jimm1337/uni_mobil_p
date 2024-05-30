@@ -9,21 +9,21 @@
 class DtoUser_OUT : public oatpp::DTO {
   DTO_INIT(DtoUser_OUT, DTO)
 
-  DTO_FIELD(Int32, UserID);
-  DTO_FIELD(String, Username);
-  DTO_FIELD(Int32, Points);
+  DTO_FIELD(Int32, id);
+  DTO_FIELD(String, username);
+  DTO_FIELD(Int32, points);
 
-  DTO_FIELD_INFO(UserID) {
+  DTO_FIELD_INFO(id) {
     info->required    = true;
     info->description = "User ID";
   }
 
-  DTO_FIELD_INFO(Username) {
+  DTO_FIELD_INFO(username) {
     info->required    = true;
     info->description = "Username";
   }
 
-  DTO_FIELD_INFO(Points) {
+  DTO_FIELD_INFO(points) {
     info->required    = true;
     info->description = "Points";
   }

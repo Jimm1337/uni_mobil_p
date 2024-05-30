@@ -1,5 +1,11 @@
 #include "MobilService.hpp"
+#include <memory>
+#include "dto/DtoAuth_DB.hpp"
+#include "dto/DtoComment_OUT.hpp"
 #include "dto/DtoError.hpp"
+#include "dto/DtoPlace_OUT.hpp"
+#include "dto/DtoUser_OUT.hpp"
+#include "dto/DtoVisit_OUT.hpp"
 #include "enum/EnumErrorType.hpp"
 #include "fmt/core.h"
 
@@ -7,21 +13,70 @@
 
 // LOGIN API ENDPOINTS ---------------------------------------------------------
 
-MobilService::Response MobilService::POST_login(const oatpp::String& username) {
-  auto dtoError     = DtoError::createShared();
-  dtoError->type    = ErrorType::SERVER_UNKNOWN;
-  dtoError->message = "Unknown error";
-  return { MobilService::Status::CODE_500, dtoError };
+MobilService::Response MobilService::POST_login(const oatpp::String& login) {
+  const auto fixedLogin = fixInputString(login);
+  auto       dbResult   = m_database->getUsersLogin(fixedLogin);
+
+  if (!dbResult->isSuccess())
+  {
+    OATPP_LOGD("", dbResult->getErrorMessage()->c_str());
+    auto dtoError     = DtoError::createShared();
+    dtoError->type    = ErrorType::SERVER_DATABASE;
+    dtoError->message = "Error in fetch user";
+    return { MobilService::Status::CODE_500, dtoError };
+  }
+
+  const auto dtoSuccess =
+    *dbResult->fetch< oatpp::Vector< oatpp::Object< DtoUser_OUT > > >()
+       ->begin();
+
+  return { MobilService::Status::CODE_200, dtoSuccess };
 }
 
 MobilService::Response MobilService::POST_register(
   const oatpp::String& username,
   const oatpp::String& login,
   const oatpp::String& password) {
-  auto dtoError     = DtoError::createShared();
-  dtoError->type    = ErrorType::SERVER_UNKNOWN;
-  dtoError->message = "Unknown error";
-  return { MobilService::Status::CODE_500, dtoError };
+  const auto fixedUsername = fixInputString(username);
+  const auto fixedLogin    = fixInputString(login);
+  const auto fixedPassword = fixInputString(password);
+
+  auto dbResultCheck = m_database->existsUsers(fixedUsername, fixedLogin);
+
+  if (!dbResultCheck->isSuccess())
+  {
+    OATPP_LOGD("", dbResultCheck->getErrorMessage()->c_str());
+    auto dtoError     = DtoError::createShared();
+    dtoError->type    = ErrorType::SERVER_DATABASE;
+    dtoError->message = "Error in check conflict user";
+    return { MobilService::Status::CODE_500, dtoError };
+  }
+
+  if (dbResultCheck->hasMoreToFetch())
+  {
+    auto dtoError     = DtoError::createShared();
+    dtoError->type    = ErrorType::CONTENT_EXISTS;
+    dtoError->message = "User with this username or login already exists";
+    return { MobilService::Status::CODE_409, dtoError };
+  }
+
+  auto dbResult =
+    m_database->postRegister(fixedUsername, fixedLogin, fixedPassword);
+
+  if (!dbResult->isSuccess())
+  {
+    OATPP_LOGD("", dbResult->getErrorMessage()->c_str());
+    auto dtoError     = DtoError::createShared();
+    dtoError->type    = ErrorType::SERVER_DATABASE;
+    dtoError->message = "Error in register user";
+    return { MobilService::Status::CODE_500, dtoError };
+  }
+
+  const auto dtoSuccess =
+    *dbResult->fetch< oatpp::Vector< oatpp::Object< DtoUser_OUT > > >()
+       ->begin();
+
+  return { MobilService::Status::CODE_201, dtoSuccess };
 }
 
 MobilService::Response MobilService::GET_logout() {
@@ -31,73 +86,503 @@ MobilService::Response MobilService::GET_logout() {
 // USER API ENDPOINTS ----------------------------------------------------------
 
 MobilService::Response MobilService::GET_places(const Queries& queries) {
-  auto dtoError     = DtoError::createShared();
-  dtoError->type    = ErrorType::SERVER_UNKNOWN;
-  dtoError->message = "Unknown error";
-  return { MobilService::Status::CODE_500, dtoError };
+  if (queries.getSize() == 0)
+  {
+    auto dbResult = m_database->getPlacesAll();
+
+    if (!dbResult->isSuccess())
+    {
+      OATPP_LOGD("", dbResult->getErrorMessage()->c_str());
+      auto dtoError     = DtoError::createShared();
+      dtoError->type    = ErrorType::SERVER_DATABASE;
+      dtoError->message = "Error in fetch all places";
+      return { MobilService::Status::CODE_500, dtoError };
+    }
+
+    if (!dbResult->hasMoreToFetch())
+    { return { MobilService::Status::CODE_204, {} }; }
+
+    const auto dtoSuccess =
+      dbResult->fetch< oatpp::Vector< oatpp::Object< DtoPlace_OUT > > >();
+
+    return { MobilService::Status::CODE_200, dtoSuccess };
+  }
+
+  if (!isMultiQuerySingle(queries))
+  {
+    auto dtoError     = DtoError::createShared();
+    dtoError->type    = ErrorType::INPUT_BAD_STRUCTURE;
+    dtoError->message = "Multiple queries not supported";
+    return { MobilService::Status::CODE_400, dtoError };
+  }
+
+  const auto queryID          = queries.get("placeID");
+  const auto queryName        = queries.get("name");
+  const auto queryLocation    = queries.get("location");
+  const auto queryDescription = queries.get("description");
+
+  if (queryID)
+  {
+    const auto fixedID =
+      oatpp::utils::conversion::strToInt32(fixInputString(*queryID)->c_str());
+    auto dbResult = m_database->getPlacesID(fixedID);
+
+    if (!dbResult->isSuccess())
+    {
+      OATPP_LOGD("", dbResult->getErrorMessage()->c_str());
+      auto dtoError     = DtoError::createShared();
+      dtoError->type    = ErrorType::SERVER_DATABASE;
+      dtoError->message = "Error in fetch place by ID";
+      return { MobilService::Status::CODE_500, dtoError };
+    }
+
+    if (!dbResult->hasMoreToFetch())
+    { return { MobilService::Status::CODE_204, {} }; }
+
+    const auto dtoSuccess =
+      dbResult->fetch< oatpp::Vector< oatpp::Object< DtoPlace_OUT > > >();
+
+    return { MobilService::Status::CODE_200, dtoSuccess };
+  }
+
+  if (queryName)
+  {
+    const auto fixedName = fixInputString(*queryName);
+    auto       dbResult  = m_database->getPlacesName(fixedName);
+
+    if (!dbResult->isSuccess())
+    {
+      OATPP_LOGD("", dbResult->getErrorMessage()->c_str());
+      auto dtoError     = DtoError::createShared();
+      dtoError->type    = ErrorType::SERVER_DATABASE;
+      dtoError->message = "Error in fetch place by name";
+      return { MobilService::Status::CODE_500, dtoError };
+    }
+
+    if (!dbResult->hasMoreToFetch())
+    { return { MobilService::Status::CODE_204, {} }; }
+
+    const auto dtoSuccess =
+      dbResult->fetch< oatpp::Vector< oatpp::Object< DtoPlace_OUT > > >();
+
+    return { MobilService::Status::CODE_200, dtoSuccess };
+  }
+
+  if (queryLocation)
+  {
+    const auto fixedLocation = fixInputString(*queryLocation);
+    auto       dbResult      = m_database->getPlacesLocation(fixedLocation);
+
+    if (!dbResult->isSuccess())
+    {
+      OATPP_LOGD("", dbResult->getErrorMessage()->c_str());
+      auto dtoError     = DtoError::createShared();
+      dtoError->type    = ErrorType::SERVER_DATABASE;
+      dtoError->message = "Error in fetch place by location";
+      return { MobilService::Status::CODE_500, dtoError };
+    }
+
+    if (!dbResult->hasMoreToFetch())
+    { return { MobilService::Status::CODE_204, {} }; }
+
+    const auto dtoSuccess =
+      dbResult->fetch< oatpp::Vector< oatpp::Object< DtoPlace_OUT > > >();
+
+    return { MobilService::Status::CODE_200, dtoSuccess };
+  }
+
+  if (queryDescription)
+  {
+    const auto fixedDescription = fixInputString(*queryDescription);
+    auto       dbResult = m_database->getPlacesDescription(fixedDescription);
+
+    if (!dbResult->isSuccess())
+    {
+      OATPP_LOGD("", dbResult->getErrorMessage()->c_str());
+      auto dtoError     = DtoError::createShared();
+      dtoError->type    = ErrorType::SERVER_DATABASE;
+      dtoError->message = "Error in fetch place by description";
+      return { MobilService::Status::CODE_500, dtoError };
+    }
+
+    if (!dbResult->hasMoreToFetch())
+    { return { MobilService::Status::CODE_204, {} }; }
+
+    const auto dtoSuccess =
+      dbResult->fetch< oatpp::Vector< oatpp::Object< DtoPlace_OUT > > >();
+
+    return { MobilService::Status::CODE_200, dtoSuccess };
+  }
+
+  auto dbResult = m_database->getPlacesAll();
+
+  if (!dbResult->isSuccess())
+  {
+    OATPP_LOGD("", dbResult->getErrorMessage()->c_str());
+    auto dtoError     = DtoError::createShared();
+    dtoError->type    = ErrorType::SERVER_DATABASE;
+    dtoError->message = "Error in fetch all places";
+    return { MobilService::Status::CODE_500, dtoError };
+  }
+
+  if (!dbResult->hasMoreToFetch())
+  { return { MobilService::Status::CODE_204, {} }; }
+
+  const auto dtoSuccess =
+    dbResult->fetch< oatpp::Vector< oatpp::Object< DtoPlace_OUT > > >();
+
+  return { MobilService::Status::CODE_200, dtoSuccess };
 }
 
 MobilService::Response MobilService::GET_users(const Queries& queries) {
-  auto dtoError     = DtoError::createShared();
-  dtoError->type    = ErrorType::SERVER_UNKNOWN;
-  dtoError->message = "Unknown error";
-  return { MobilService::Status::CODE_500, dtoError };
+  if (queries.getSize() == 0)
+  {
+    auto dbResult = m_database->getUsersAll();
+
+    if (!dbResult->isSuccess())
+    {
+      OATPP_LOGD("", dbResult->getErrorMessage()->c_str());
+      auto dtoError     = DtoError::createShared();
+      dtoError->type    = ErrorType::SERVER_DATABASE;
+      dtoError->message = "Error in fetch all users";
+      return { MobilService::Status::CODE_500, dtoError };
+    }
+
+    if (!dbResult->hasMoreToFetch())
+    { return { MobilService::Status::CODE_204, {} }; }
+
+    const auto dtoSuccess =
+      dbResult->fetch< oatpp::Vector< oatpp::Object< DtoUser_OUT > > >();
+
+    return { MobilService::Status::CODE_200, dtoSuccess };
+  }
+
+  if (!isMultiQuerySingle(queries))
+  {
+    auto dtoError     = DtoError::createShared();
+    dtoError->type    = ErrorType::INPUT_BAD_STRUCTURE;
+    dtoError->message = "Multiple queries not supported";
+    return { MobilService::Status::CODE_400, dtoError };
+  }
+
+  const auto queryID = queries.get("userID");
+
+  if (queryID)
+  {
+    const auto fixedID =
+      oatpp::utils::conversion::strToInt32(fixInputString(*queryID)->c_str());
+    auto dbResult = m_database->getUsersID(fixedID);
+
+    if (!dbResult->isSuccess())
+    {
+      OATPP_LOGD("", dbResult->getErrorMessage()->c_str());
+      auto dtoError     = DtoError::createShared();
+      dtoError->type    = ErrorType::SERVER_DATABASE;
+      dtoError->message = "Error in fetch user by ID";
+      return { MobilService::Status::CODE_500, dtoError };
+    }
+
+    if (!dbResult->hasMoreToFetch())
+    { return { MobilService::Status::CODE_204, {} }; }
+
+    const auto dtoSuccess =
+      dbResult->fetch< oatpp::Vector< oatpp::Object< DtoUser_OUT > > >();
+
+    return { MobilService::Status::CODE_200, dtoSuccess };
+  }
+
+  auto dbResult = m_database->getUsersAll();
+
+  if (!dbResult->isSuccess())
+  {
+    OATPP_LOGD("", dbResult->getErrorMessage()->c_str());
+    auto dtoError     = DtoError::createShared();
+    dtoError->type    = ErrorType::SERVER_DATABASE;
+    dtoError->message = "Error in fetch all users";
+    return { MobilService::Status::CODE_500, dtoError };
+  }
+
+  if (!dbResult->hasMoreToFetch())
+  { return { MobilService::Status::CODE_204, {} }; }
+
+  const auto dtoSuccess =
+    dbResult->fetch< oatpp::Vector< oatpp::Object< DtoUser_OUT > > >();
+
+  return { MobilService::Status::CODE_200, dtoSuccess };
 }
 
 MobilService::Response MobilService::GET_comments(
   const oatpp::Int32& placeId,
   const oatpp::Int32& start,
   const oatpp::Int32& end) {
-  auto dtoError     = DtoError::createShared();
-  dtoError->type    = ErrorType::SERVER_UNKNOWN;
-  dtoError->message = "Unknown error";
-  return { MobilService::Status::CODE_500, dtoError };
+  if (!isRangeValid(start, end))
+  {
+    auto dtoError     = DtoError::createShared();
+    dtoError->type    = ErrorType::DATA_FORMAT;
+    dtoError->message = "Bad range values";
+    return { MobilService::Status::CODE_416, dtoError };
+  }
+
+  auto dbResult = m_database->getComments(placeId, start, end);
+
+  if (!dbResult->isSuccess())
+  {
+    OATPP_LOGD("", dbResult->getErrorMessage()->c_str());
+    auto dtoError     = DtoError::createShared();
+    dtoError->type    = ErrorType::SERVER_DATABASE;
+    dtoError->message = "Error in fetch comments";
+    return { MobilService::Status::CODE_500, dtoError };
+  }
+
+  if (!dbResult->hasMoreToFetch())
+  { return { MobilService::Status::CODE_204, {} }; }
+
+  const auto dtoSuccess =
+    dbResult->fetch< oatpp::Vector< oatpp::Object< DtoComment_OUT > > >();
+
+  return { MobilService::Status::CODE_200, dtoSuccess };
 }
 
 MobilService::Response MobilService::GET_visitsByPlace(
   const oatpp::Int32& placeId,
   const oatpp::Int32& start,
   const oatpp::Int32& end) {
-  auto dtoError     = DtoError::createShared();
-  dtoError->type    = ErrorType::SERVER_UNKNOWN;
-  dtoError->message = "Unknown error";
-  return { MobilService::Status::CODE_500, dtoError };
+  if (!isRangeValid(start, end))
+  {
+    auto dtoError     = DtoError::createShared();
+    dtoError->type    = ErrorType::DATA_FORMAT;
+    dtoError->message = "Bad range values";
+    return { MobilService::Status::CODE_416, dtoError };
+  }
+
+  auto dbResult = m_database->getVisitsByPlace(placeId, start, end);
+
+  if (!dbResult->isSuccess())
+  {
+    OATPP_LOGD("", dbResult->getErrorMessage()->c_str());
+    auto dtoError     = DtoError::createShared();
+    dtoError->type    = ErrorType::SERVER_DATABASE;
+    dtoError->message = "Error in fetch visits by place";
+    return { MobilService::Status::CODE_500, dtoError };
+  }
+
+  if (!dbResult->hasMoreToFetch())
+  { return { MobilService::Status::CODE_204, {} }; }
+
+  const auto dtoSuccess =
+    dbResult->fetch< oatpp::Vector< oatpp::Object< DtoVisit_OUT > > >();
+
+  return { MobilService::Status::CODE_200, dtoSuccess };
 }
 
 MobilService::Response MobilService::GET_visitsByUser(
   const oatpp::Int32& userId,
   const oatpp::Int32& start,
   const oatpp::Int32& end) {
-  auto dtoError     = DtoError::createShared();
-  dtoError->type    = ErrorType::SERVER_UNKNOWN;
-  dtoError->message = "Unknown error";
-  return { MobilService::Status::CODE_500, dtoError };
+  if (!isRangeValid(start, end))
+  {
+    auto dtoError     = DtoError::createShared();
+    dtoError->type    = ErrorType::DATA_FORMAT;
+    dtoError->message = "Bad range values";
+    return { MobilService::Status::CODE_416, dtoError };
+  }
+
+  auto dbResult = m_database->getVisitsByUser(userId, start, end);
+
+  if (!dbResult->isSuccess())
+  {
+    OATPP_LOGD("", dbResult->getErrorMessage()->c_str());
+    auto dtoError     = DtoError::createShared();
+    dtoError->type    = ErrorType::SERVER_DATABASE;
+    dtoError->message = "Error in fetch visits by user";
+    return { MobilService::Status::CODE_500, dtoError };
+  }
+
+  if (!dbResult->hasMoreToFetch())
+  { return { MobilService::Status::CODE_204, {} }; }
+
+  const auto dtoSuccess =
+    dbResult->fetch< oatpp::Vector< oatpp::Object< DtoVisit_OUT > > >();
+
+  return { MobilService::Status::CODE_200, dtoSuccess };
 }
 
 MobilService::Response MobilService::GET_ranking(
   const oatpp::Int32& start, const oatpp::Int32& end) {
-  auto dtoError     = DtoError::createShared();
-  dtoError->type    = ErrorType::SERVER_UNKNOWN;
-  dtoError->message = "Unknown error";
-  return { MobilService::Status::CODE_500, dtoError };
+  if (!isRangeValid(start, end))
+  {
+    auto dtoError     = DtoError::createShared();
+    dtoError->type    = ErrorType::DATA_FORMAT;
+    dtoError->message = "Bad range values";
+    return { MobilService::Status::CODE_416, dtoError };
+  }
+
+  auto dbResult = m_database->getRanking(start, end);
+
+  if (!dbResult->isSuccess())
+  {
+    OATPP_LOGD("", dbResult->getErrorMessage()->c_str());
+    auto dtoError     = DtoError::createShared();
+    dtoError->type    = ErrorType::SERVER_DATABASE;
+    dtoError->message = "Error in fetch ranking";
+    return { MobilService::Status::CODE_500, dtoError };
+  }
+
+  if (!dbResult->hasMoreToFetch())
+  { return { MobilService::Status::CODE_204, {} }; }
+
+  const auto dtoSuccess =
+    dbResult->fetch< oatpp::Vector< oatpp::Object< DtoUser_OUT > > >();
+
+  return { MobilService::Status::CODE_200, dtoSuccess };
 }
 
 MobilService::Response MobilService::POST_visits(
   const oatpp::String& authUser, const oatpp::String& key) {
-  auto dtoError     = DtoError::createShared();
-  dtoError->type    = ErrorType::SERVER_UNKNOWN;
-  dtoError->message = "Unknown error";
-  return { MobilService::Status::CODE_500, dtoError };
+  const auto fixedAuthUser = fixInputString(authUser);
+  const auto fixedKey      = fixInputString(key);
+
+  auto dbResult = m_database->postVisitsValidate(fixedKey);
+
+  if (!dbResult->isSuccess())
+  {
+    OATPP_LOGD("", dbResult->getErrorMessage()->c_str());
+    auto dtoError     = DtoError::createShared();
+    dtoError->type    = ErrorType::SERVER_DATABASE;
+    dtoError->message = "Error in validate visit";
+    return { MobilService::Status::CODE_500, dtoError };
+  }
+
+  if (!dbResult->hasMoreToFetch())
+  {
+    auto dtoError     = DtoError::createShared();
+    dtoError->type    = ErrorType::BAD_KEY;
+    dtoError->message = "Place with this key not found";
+    return { MobilService::Status::CODE_422, dtoError };
+  }
+
+  const auto newPlaceId =
+    dbResult->fetch< oatpp::Vector< oatpp::Object< DtoPlace_OUT > > >()
+      ->front()
+      ->id;
+
+  dbResult = m_database->getVisitsByUser(
+    m_database->getUsersLogin(authUser)
+      ->fetch< oatpp::Vector< oatpp::Object< DtoUser_OUT > > >()
+      ->front()
+      ->id,
+    0,
+    INT_MAX);
+
+  if (!dbResult->isSuccess())
+  {
+    OATPP_LOGD("", dbResult->getErrorMessage()->c_str());
+    auto dtoError     = DtoError::createShared();
+    dtoError->type    = ErrorType::SERVER_DATABASE;
+    dtoError->message = "Error in fetch visits by user";
+    return { MobilService::Status::CODE_500, dtoError };
+  }
+
+  const auto visitVec =
+    dbResult->fetch< oatpp::Vector< oatpp::Object< DtoVisit_OUT > > >();
+
+  for (const auto& visit : *visitVec)
+  {
+    if (visit->placeid == newPlaceId)
+    {
+      auto dtoError     = DtoError::createShared();
+      dtoError->type    = ErrorType::CONTENT_EXISTS;
+      dtoError->message = "User already visited this place";
+      return { MobilService::Status::CODE_409, dtoError };
+    }
+  }
+
+  dbResult = m_database->postVisitsInsert(
+    m_database->getUsersLogin(authUser)
+      ->fetch< oatpp::Vector< oatpp::Object< DtoUser_OUT > > >()
+      ->front()
+      ->username,
+    newPlaceId);
+
+  if (!dbResult->isSuccess())
+  {
+    OATPP_LOGD("", dbResult->getErrorMessage()->c_str());
+    auto dtoError     = DtoError::createShared();
+    dtoError->type    = ErrorType::SERVER_DATABASE;
+    dtoError->message = "Error in insert visit";
+    return { MobilService::Status::CODE_500, dtoError };
+  }
+
+  const auto dtoSuccess =
+    dbResult->fetch< oatpp::Vector< oatpp::Object< DtoVisit_OUT > > >()->back();
+
+  return { MobilService::Status::CODE_201, dtoSuccess };
 }
 
 MobilService::Response MobilService::POST_comments(
   const oatpp::String& authUser,
   const oatpp::Int32&  placeId,
   const oatpp::String& content) {
-  auto dtoError     = DtoError::createShared();
-  dtoError->type    = ErrorType::SERVER_UNKNOWN;
-  dtoError->message = "Unknown error";
-  return { MobilService::Status::CODE_500, dtoError };
+  const auto fixedAuthUser = fixInputString(authUser);
+  const auto fixedContent  = fixInputString(content);
+
+  auto dbResult = m_database->getUsersLogin(fixedAuthUser);
+
+  if (!dbResult->isSuccess())
+  {
+    OATPP_LOGD("", dbResult->getErrorMessage()->c_str());
+    auto dtoError     = DtoError::createShared();
+    dtoError->type    = ErrorType::SERVER_DATABASE;
+    dtoError->message = "Error in fetch user";
+    return { MobilService::Status::CODE_500, dtoError };
+  }
+
+  const auto user = dbResult->fetch< oatpp::Vector<oatpp::Object< DtoUser_OUT >> >()->front();
+
+  dbResult = m_database->postCommentsValidate(user->username, placeId);
+
+  if (!dbResult->isSuccess())
+  {
+    OATPP_LOGD("", dbResult->getErrorMessage()->c_str());
+    auto dtoError     = DtoError::createShared();
+    dtoError->type    = ErrorType::SERVER_DATABASE;
+    dtoError->message = "Error in validate comment";
+    return { MobilService::Status::CODE_500, dtoError };
+  }
+
+  if (content->size() > 499)
+  {
+    auto dtoError     = DtoError::createShared();
+    dtoError->type    = ErrorType::DATA_FORMAT;
+    dtoError->message = "Content too long";
+    return { MobilService::Status::CODE_422, dtoError };
+  }
+
+  if (!dbResult->hasMoreToFetch())
+  {
+    auto dtoError     = DtoError::createShared();
+    dtoError->type    = ErrorType::BAD_KEY;
+    dtoError->message = "User did not visit this place";
+    return { MobilService::Status::CODE_412, dtoError };
+  }
+
+  dbResult =
+    m_database->postCommentsInsert(user->username, placeId, fixedContent);
+
+  if (!dbResult->isSuccess())
+  {
+    OATPP_LOGD("", dbResult->getErrorMessage()->c_str());
+    auto dtoError     = DtoError::createShared();
+    dtoError->type    = ErrorType::SERVER_DATABASE;
+    dtoError->message = "Error in insert comment";
+    return { MobilService::Status::CODE_500, dtoError };
+  }
+
+  const auto dtoSuccess =
+    dbResult->fetch< oatpp::Vector< oatpp::Object< DtoComment_OUT > > >()
+      ->back();
+
+  return { MobilService::Status::CODE_201, dtoSuccess };
 }
 
 // ADMIN API ENDPOINTS ---------------------------------------------------------
@@ -107,18 +592,97 @@ MobilService::Response MobilService::PUT_places(
   const oatpp::String& description,
   const oatpp::String& location,
   const oatpp::String& key) {
-  auto dtoError     = DtoError::createShared();
-  dtoError->type    = ErrorType::SERVER_UNKNOWN;
-  dtoError->message = "Unknown error";
-  return { MobilService::Status::CODE_500, dtoError };
+  const auto fixedName        = fixInputString(name);
+  const auto fixedDescription = fixInputString(description);
+  const auto fixedLocation    = fixInputString(location);
+  const auto fixedKey         = fixInputString(key);
+
+  auto dbResult = m_database->getPlacesName(fixedName);
+
+  if (!dbResult->isSuccess())
+  {
+    OATPP_LOGD("", dbResult->getErrorMessage()->c_str());
+    auto dtoError     = DtoError::createShared();
+    dtoError->type    = ErrorType::SERVER_DATABASE;
+    dtoError->message = "Error in check conflict place";
+    return { MobilService::Status::CODE_500, dtoError };
+  }
+
+  if (dbResult->hasMoreToFetch())
+  {
+    const auto updatedId =
+      dbResult->fetch< oatpp::Vector< oatpp::Object<DtoPlace_OUT > >>()->front()->id;
+
+    dbResult = m_database->putPlacesUpdate(
+      updatedId, fixedName, fixedDescription, fixedLocation, fixedKey);
+
+    if (!dbResult->isSuccess())
+    {
+      OATPP_LOGD("", dbResult->getErrorMessage()->c_str());
+      auto dtoError     = DtoError::createShared();
+      dtoError->type    = ErrorType::CONTENT_EXISTS;
+      dtoError->message = "Field conflict in update place";
+      return { MobilService::Status::CODE_409, dtoError };
+    }
+
+    const auto dtoSuccess =
+      dbResult->fetch< oatpp::Vector< oatpp::Object< DtoPlace_OUT > > >()
+        ->back();
+
+    return { MobilService::Status::CODE_200, dtoSuccess };
+  }
+
+  dbResult = m_database->putPlacesInsert(
+    fixedName, fixedDescription, fixedLocation, fixedKey);
+
+  if (!dbResult->isSuccess())
+  {
+    OATPP_LOGD("", dbResult->getErrorMessage()->c_str());
+    auto dtoError     = DtoError::createShared();
+    dtoError->type    = ErrorType::SERVER_DATABASE;
+    dtoError->message = "Error in insert place";
+    return { MobilService::Status::CODE_500, dtoError };
+  }
+
+  const auto dtoSuccess =
+    dbResult->fetch< oatpp::Vector< oatpp::Object< DtoPlace_OUT > > >()->back();
+
+  return { MobilService::Status::CODE_201, dtoSuccess };
 }
 
 MobilService::Response MobilService::DELETE_places(
   const oatpp::Int32& placeId) {
-  auto dtoError     = DtoError::createShared();
-  dtoError->type    = ErrorType::SERVER_UNKNOWN;
-  dtoError->message = "Unknown error";
-  return { MobilService::Status::CODE_500, dtoError };
+  auto dbResult = m_database->getPlacesID(placeId);
+
+  if (!dbResult->isSuccess())
+  {
+    OATPP_LOGD("", dbResult->getErrorMessage()->c_str());
+    auto dtoError     = DtoError::createShared();
+    dtoError->type    = ErrorType::SERVER_DATABASE;
+    dtoError->message = "Error in fetch place by ID";
+    return { MobilService::Status::CODE_500, dtoError };
+  }
+
+  if (!dbResult->hasMoreToFetch())
+  {
+    auto dtoError     = DtoError::createShared();
+    dtoError->type    = ErrorType::BAD_KEY;
+    dtoError->message = "Place with this ID not found";
+    return { MobilService::Status::CODE_404, dtoError };
+  }
+
+  dbResult = m_database->deletePlaces(placeId);
+
+  if (!dbResult->isSuccess())
+  {
+    OATPP_LOGD("", dbResult->getErrorMessage()->c_str());
+    auto dtoError     = DtoError::createShared();
+    dtoError->type    = ErrorType::SERVER_DATABASE;
+    dtoError->message = "Error in delete place";
+    return { MobilService::Status::CODE_500, dtoError };
+  }
+
+  return { MobilService::Status::CODE_204, oatpp::String() };
 }
 
 MobilService::Response MobilService::PUT_users(
@@ -127,33 +691,183 @@ MobilService::Response MobilService::PUT_users(
   const oatpp::String&  password,
   const oatpp::Boolean& isAdmin,
   const oatpp::Int32&   points) {
-  auto dtoError     = DtoError::createShared();
-  dtoError->type    = ErrorType::SERVER_UNKNOWN;
-  dtoError->message = "Unknown error";
-  return { MobilService::Status::CODE_500, dtoError };
+  const auto fixedUsername = fixInputString(username);
+  const auto fixedLogin    = fixInputString(login);
+  const auto fixedPassword = fixInputString(password);
+
+  auto dbResult = m_database->getUsersUsername(fixedUsername);
+
+  if (!dbResult->isSuccess())
+  {
+    OATPP_LOGD("", dbResult->getErrorMessage()->c_str());
+    auto dtoError     = DtoError::createShared();
+    dtoError->type    = ErrorType::SERVER_DATABASE;
+    dtoError->message = "Error in check conflict user";
+    return { MobilService::Status::CODE_500, dtoError };
+  }
+
+  if (dbResult->hasMoreToFetch())
+  {
+    const auto updatedId =
+      dbResult->fetch< oatpp::Vector< oatpp::Object<DtoUser_OUT >> >()->front()->id;
+
+    dbResult = m_database->putUsersUpdate(
+      updatedId, fixedUsername, fixedLogin, fixedPassword, isAdmin, points);
+
+    if (!dbResult->isSuccess())
+    {
+      OATPP_LOGD("", dbResult->getErrorMessage()->c_str());
+      auto dtoError     = DtoError::createShared();
+      dtoError->type    = ErrorType::CONTENT_EXISTS;
+      dtoError->message = "Field conflict in update user";
+      return { MobilService::Status::CODE_409, dtoError };
+    }
+
+    const auto dtoSuccess =
+      dbResult->fetch< oatpp::Vector< oatpp::Object< DtoUser_OUT > > >()
+        ->back();
+
+    return { MobilService::Status::CODE_200, dtoSuccess };
+  }
+
+  dbResult = m_database->putUsersInsert(
+    fixedUsername, fixedLogin, fixedPassword, isAdmin, points);
+
+  if (!dbResult->isSuccess())
+  {
+    OATPP_LOGD("", dbResult->getErrorMessage()->c_str());
+    auto dtoError     = DtoError::createShared();
+    dtoError->type    = ErrorType::SERVER_DATABASE;
+    dtoError->message = "Error in insert user";
+    return { MobilService::Status::CODE_500, dtoError };
+  }
+
+  const auto dtoSuccess =
+    dbResult->fetch< oatpp::Vector< oatpp::Object< DtoUser_OUT > > >()->back();
+
+  return { MobilService::Status::CODE_201, dtoSuccess };
 }
 
 MobilService::Response MobilService::DELETE_users(const oatpp::Int32& userId) {
-  auto dtoError     = DtoError::createShared();
-  dtoError->type    = ErrorType::SERVER_UNKNOWN;
-  dtoError->message = "Unknown error";
-  return { MobilService::Status::CODE_500, dtoError };
+  auto dbResult = m_database->getUsersID(userId);
+
+  if (!dbResult->isSuccess())
+  {
+    OATPP_LOGD("", dbResult->getErrorMessage()->c_str());
+    auto dtoError     = DtoError::createShared();
+    dtoError->type    = ErrorType::SERVER_DATABASE;
+    dtoError->message = "Error in fetch user by ID";
+    return { MobilService::Status::CODE_500, dtoError };
+  }
+
+  if (!dbResult->hasMoreToFetch())
+  {
+    auto dtoError     = DtoError::createShared();
+    dtoError->type    = ErrorType::BAD_KEY;
+    dtoError->message = "User with this ID not found";
+    return { MobilService::Status::CODE_404, dtoError };
+  }
+
+  dbResult = m_database->deleteUsers(userId);
+
+  if (!dbResult->isSuccess())
+  {
+    OATPP_LOGD("", dbResult->getErrorMessage()->c_str());
+    auto dtoError     = DtoError::createShared();
+    dtoError->type    = ErrorType::SERVER_DATABASE;
+    dtoError->message = "Error in delete user";
+    return { MobilService::Status::CODE_500, dtoError };
+  }
+
+  return { MobilService::Status::CODE_204, oatpp::String() };
 }
 
 MobilService::Response MobilService::PUT_visits(
   const oatpp::Int32& userId, const oatpp::Int32& placeId) {
-  auto dtoError     = DtoError::createShared();
-  dtoError->type    = ErrorType::SERVER_UNKNOWN;
-  dtoError->message = "Unknown error";
-  return { MobilService::Status::CODE_500, dtoError };
+  auto dbResult = m_database->existsVisits(-1, userId, placeId);
+
+  if (!dbResult->isSuccess())
+  {
+    OATPP_LOGD("", dbResult->getErrorMessage()->c_str());
+    auto dtoError     = DtoError::createShared();
+    dtoError->type    = ErrorType::SERVER_DATABASE;
+    dtoError->message = "Error in check conflict visit";
+    return { MobilService::Status::CODE_500, dtoError };
+  }
+
+  if (dbResult->hasMoreToFetch())
+  {
+    const auto updatedId =
+      dbResult->fetch< oatpp::Vector< oatpp::Object<DtoVisit_OUT> > >()->front()->id;
+
+    dbResult = m_database->putVisitsUpdate(updatedId, userId, placeId);
+
+    if (!dbResult->isSuccess())
+    {
+      OATPP_LOGD("", dbResult->getErrorMessage()->c_str());
+      auto dtoError     = DtoError::createShared();
+      dtoError->type    = ErrorType::CONTENT_EXISTS;
+      dtoError->message = "Field conflict in update visit";
+      return { MobilService::Status::CODE_409, dtoError };
+    }
+
+    const auto dtoSuccess =
+      dbResult->fetch< oatpp::Vector< oatpp::Object< DtoVisit_OUT > > >()
+        ->back();
+
+    return { MobilService::Status::CODE_200, dtoSuccess };
+  }
+
+  dbResult = m_database->putVisitsInsert(userId, placeId);
+
+  if (!dbResult->isSuccess())
+  {
+    OATPP_LOGD("", dbResult->getErrorMessage()->c_str());
+    auto dtoError     = DtoError::createShared();
+    dtoError->type    = ErrorType::SERVER_DATABASE;
+    dtoError->message = "Error in insert visit";
+    return { MobilService::Status::CODE_500, dtoError };
+  }
+
+  const auto dtoSuccess =
+    dbResult->fetch< oatpp::Vector< oatpp::Object< DtoVisit_OUT > > >()->back();
+
+  return { MobilService::Status::CODE_201, dtoSuccess };
 }
 
 MobilService::Response MobilService::DELETE_visits(
   const oatpp::Int32& visitId) {
-  auto dtoError     = DtoError::createShared();
-  dtoError->type    = ErrorType::SERVER_UNKNOWN;
-  dtoError->message = "Unknown error";
-  return { MobilService::Status::CODE_500, dtoError };
+  auto dbResult = m_database->existsVisits(visitId, -1, -1);
+
+  if (!dbResult->isSuccess())
+  {
+    OATPP_LOGD("", dbResult->getErrorMessage()->c_str());
+    auto dtoError     = DtoError::createShared();
+    dtoError->type    = ErrorType::SERVER_DATABASE;
+    dtoError->message = "Error in fetch visit by ID";
+    return { MobilService::Status::CODE_500, dtoError };
+  }
+
+  if (!dbResult->hasMoreToFetch())
+  {
+    auto dtoError     = DtoError::createShared();
+    dtoError->type    = ErrorType::BAD_KEY;
+    dtoError->message = "Visit with this ID not found";
+    return { MobilService::Status::CODE_404, dtoError };
+  }
+
+  dbResult = m_database->deleteVisits(visitId);
+
+  if (!dbResult->isSuccess())
+  {
+    OATPP_LOGD("", dbResult->getErrorMessage()->c_str());
+    auto dtoError     = DtoError::createShared();
+    dtoError->type    = ErrorType::SERVER_DATABASE;
+    dtoError->message = "Error in delete visit";
+    return { MobilService::Status::CODE_500, dtoError };
+  }
+
+  return { MobilService::Status::CODE_204, oatpp::String() };
 }
 
 MobilService::Response MobilService::PUT_comments(
@@ -161,31 +875,117 @@ MobilService::Response MobilService::PUT_comments(
   const oatpp::Int32&  placeId,
   const oatpp::String& content,
   const oatpp::Int32&  likes) {
-  auto dtoError     = DtoError::createShared();
-  dtoError->type    = ErrorType::SERVER_UNKNOWN;
-  dtoError->message = "Unknown error";
-  return { MobilService::Status::CODE_500, dtoError };
+  const auto fixedContent = fixInputString(content);
+
+  auto dbResult = m_database->existsComments(-1, userId, placeId);
+
+  if (!dbResult->isSuccess())
+  {
+    OATPP_LOGD("", dbResult->getErrorMessage()->c_str());
+    auto dtoError     = DtoError::createShared();
+    dtoError->type    = ErrorType::SERVER_DATABASE;
+    dtoError->message = "Error in check conflict comment";
+    return { MobilService::Status::CODE_500, dtoError };
+  }
+
+  if (dbResult->hasMoreToFetch())
+  {
+    const auto updatedId =
+      dbResult->fetch< oatpp::Vector<oatpp::Object< DtoComment_OUT > >>()->front()->id;
+
+    dbResult =
+      m_database->putCommentsUpdate(updatedId, userId, placeId, fixedContent);
+
+    if (!dbResult->isSuccess())
+    {
+      OATPP_LOGD("", dbResult->getErrorMessage()->c_str());
+      auto dtoError     = DtoError::createShared();
+      dtoError->type    = ErrorType::CONTENT_EXISTS;
+      dtoError->message = "Field conflict in update comment";
+      return { MobilService::Status::CODE_409, dtoError };
+    }
+
+    const auto dtoSuccess =
+      dbResult->fetch< oatpp::Vector< oatpp::Object< DtoComment_OUT > > >()
+        ->back();
+
+    return { MobilService::Status::CODE_200, dtoSuccess };
+  }
+
+  dbResult = m_database->putCommentsInsert(userId, placeId, fixedContent);
+
+  if (!dbResult->isSuccess())
+  {
+    OATPP_LOGD("", dbResult->getErrorMessage()->c_str());
+    auto dtoError     = DtoError::createShared();
+    dtoError->type    = ErrorType::SERVER_DATABASE;
+    dtoError->message = "Error in insert comment";
+    return { MobilService::Status::CODE_500, dtoError };
+  }
+
+  const auto dtoSuccess =
+    dbResult->fetch< oatpp::Vector< oatpp::Object< DtoComment_OUT > > >()
+      ->back();
+
+  return { MobilService::Status::CODE_201, dtoSuccess };
 }
 
 MobilService::Response MobilService::DELETE_comments(
   const oatpp::Int32& commentId) {
-  auto dtoError     = DtoError::createShared();
-  dtoError->type    = ErrorType::SERVER_UNKNOWN;
-  dtoError->message = "Unknown error";
-  return { MobilService::Status::CODE_500, dtoError };
+  auto dbResult = m_database->existsComments(commentId, -1, -1);
+
+  if (!dbResult->isSuccess())
+  {
+    OATPP_LOGD("", dbResult->getErrorMessage()->c_str());
+    auto dtoError     = DtoError::createShared();
+    dtoError->type    = ErrorType::SERVER_DATABASE;
+    dtoError->message = "Error in fetch comment by ID";
+    return { MobilService::Status::CODE_500, dtoError };
+  }
+
+  if (!dbResult->hasMoreToFetch())
+  {
+    auto dtoError     = DtoError::createShared();
+    dtoError->type    = ErrorType::BAD_KEY;
+    dtoError->message = "Comment with this ID not found";
+    return { MobilService::Status::CODE_404, dtoError };
+  }
+
+  dbResult = m_database->deleteComments(commentId);
+
+  if (!dbResult->isSuccess())
+  {
+    OATPP_LOGD("", dbResult->getErrorMessage()->c_str());
+    auto dtoError     = DtoError::createShared();
+    dtoError->type    = ErrorType::SERVER_DATABASE;
+    dtoError->message = "Error in delete comment";
+    return { MobilService::Status::CODE_500, dtoError };
+  }
+
+  return { MobilService::Status::CODE_204, oatpp::String() };
 }
 
 // AUTHORIZATION ---------------------------------------------------------------
 
 MobilService::Auth MobilService::authorize(const AuthObject& authObject) {
-  if (authObject->userId == "admin" && authObject->password == "admin")
+  const auto fixedLogin    = fixInputString(authObject->userId);
+  const auto fixedPassword = fixInputString(authObject->password);
+
+  auto dbResult = m_database->authorize(fixedLogin, fixedPassword);
+
+  if (!dbResult->isSuccess())
   {
-    return Auth::ADMIN;
-  } else if (authObject->userId == "user" && authObject->password == "user") {
-    return Auth::USER;
-  } else {
-    return Auth::BAD_CREDENTIALS;
+    OATPP_LOGD("", dbResult->getErrorMessage()->c_str());
+    return Auth::ERR;
   }
+  if (!dbResult->hasMoreToFetch()) { return Auth::BAD_CREDENTIALS; }
+
+  const auto dtoSuccess =
+    *dbResult->fetch< oatpp::Vector< oatpp::Object< DtoAuth_DB > > >()->begin();
+
+  if (dtoSuccess->admin) { return Auth::ADMIN; }
+
+  return Auth::USER;
 }
 
 // UTILS -----------------------------------------------------------------------
@@ -459,5 +1259,5 @@ bool MobilService::isMultiQuerySingle(const Queries& queries) {
 
 bool MobilService::isRangeValid(
   const oatpp::Int32& start, const oatpp::Int32& end) {
-  return start >= 0 && end >= 0 && start <= end;
+  return start >= 0 && end >= 0 && start < end;
 }

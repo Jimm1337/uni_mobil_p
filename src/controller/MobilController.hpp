@@ -76,6 +76,11 @@ public:
       dto->type    = ErrorType::AUTH_BAD_CREDENTIALS;
       dto->message = "Bad credentials";
       return createDtoResponse(Status::CODE_401, dto);
+    } else if (service.authorize(authObject) == MobilService::Auth::ERR) {
+      auto dto     = DtoError::createShared();
+      dto->type    = ErrorType::SERVER_DATABASE;
+      dto->message = "ERROR IN AUTH";
+      return createDtoResponse(Status::CODE_500, dto);
     }
 
     const auto [status, response] = service.POST_login(authObject->userId);
@@ -102,6 +107,16 @@ public:
     "/register",
     postRegister,
     BODY_DTO(Object< DtoRegister_IN >, registerData)) {
+    if (
+      registerData->Username == nullptr || registerData->Login == nullptr ||
+      registerData->Password == nullptr)
+    {
+      auto dto     = DtoError::createShared();
+      dto->type    = ErrorType::INPUT_BAD_STRUCTURE;
+      dto->message = "Invalid json input";
+      return createDtoResponse(Status::CODE_400, dto);
+    }
+
     const auto [status, response] = service.POST_register(
       registerData->Username, registerData->Login, registerData->Password);
     return createDtoResponse(status, response);
@@ -132,6 +147,11 @@ public:
       dto->type    = ErrorType::AUTH_BAD_CREDENTIALS;
       dto->message = "Bad credentials";
       return createDtoResponse(Status::CODE_401, dto);
+    } else if (service.authorize(authObject) == MobilService::Auth::ERR) {
+      auto dto     = DtoError::createShared();
+      dto->type    = ErrorType::SERVER_DATABASE;
+      dto->message = "ERROR IN AUTH";
+      return createDtoResponse(Status::CODE_500, dto);
     }
 
     const auto [status, response] = service.GET_logout();
@@ -149,8 +169,10 @@ public:
       Status::CODE_500, "application/json");
     info->addResponse< Object< DtoError > >(
       Status::CODE_401, "application/json");
+    info->addResponse< Object< DtoError > >(
+      Status::CODE_400, "application/json");
     info->addResponse< String >(Status::CODE_204, "text/plain");
-    info->addResponse< List< Object< DtoPlace_OUT > > >(
+    info->addResponse< oatpp::Vector< Object< DtoPlace_OUT > > >(
       Status::CODE_200, "application/json");
     info->addTag("User");
     info->addSecurityRequirement("User");
@@ -170,9 +192,18 @@ public:
       dto->type    = ErrorType::AUTH_BAD_CREDENTIALS;
       dto->message = "Bad credentials";
       return createDtoResponse(Status::CODE_401, dto);
+    } else if (service.authorize(authObject) == MobilService::Auth::ERR) {
+      auto dto     = DtoError::createShared();
+      dto->type    = ErrorType::SERVER_DATABASE;
+      dto->message = "ERROR IN AUTH";
+      return createDtoResponse(Status::CODE_500, dto);
     }
 
     const auto [status, response] = service.GET_places(queryParams);
+
+    if (status == Status::CODE_204)
+    { return createResponse(Status::CODE_204, "No content"); }
+
     return createDtoResponse(status, response);
   }
   ADD_CORS(getPlaces, "*", "GET")
@@ -184,6 +215,8 @@ public:
       Status::CODE_500, "application/json");
     info->addResponse< Object< DtoError > >(
       Status::CODE_401, "application/json");
+    info->addResponse< Object< DtoError > >(
+      Status::CODE_400, "application/json");
     info->addResponse< String >(Status::CODE_204, "text/plain");
     info->addResponse< List< Object< DtoUser_OUT > > >(
       Status::CODE_200, "application/json");
@@ -205,9 +238,18 @@ public:
       dto->type    = ErrorType::AUTH_BAD_CREDENTIALS;
       dto->message = "Bad credentials";
       return createDtoResponse(Status::CODE_401, dto);
+    } else if (service.authorize(authObject) == MobilService::Auth::ERR) {
+      auto dto     = DtoError::createShared();
+      dto->type    = ErrorType::SERVER_DATABASE;
+      dto->message = "ERROR IN AUTH";
+      return createDtoResponse(Status::CODE_500, dto);
     }
 
     const auto [status, response] = service.GET_users(queryParams);
+
+    if (status == Status::CODE_204)
+    { return createResponse(Status::CODE_204, "No content"); }
+
     return createDtoResponse(status, response);
   }
   ADD_CORS(getUsers, "*", "GET")
@@ -220,10 +262,9 @@ public:
     info->addResponse< Object< DtoError > >(
       Status::CODE_416, "application/json");
     info->addResponse< Object< DtoError > >(
-      Status::CODE_404, "application/json");
-    info->addResponse< Object< DtoError > >(
       Status::CODE_401, "application/json");
-    info->addResponse< List< Object< DtoComment_OUT > > >(
+    info->addResponse< String >(Status::CODE_204, "text/plain");
+    info->addResponse< oatpp::Vector< Object< DtoComment_OUT > > >(
       Status::CODE_200, "application/json");
     info->addTag("User");
     info->addSecurityRequirement("User");
@@ -245,9 +286,18 @@ public:
       dto->type    = ErrorType::AUTH_BAD_CREDENTIALS;
       dto->message = "Bad credentials";
       return createDtoResponse(Status::CODE_401, dto);
+    } else if (service.authorize(authObject) == MobilService::Auth::ERR) {
+      auto dto     = DtoError::createShared();
+      dto->type    = ErrorType::SERVER_DATABASE;
+      dto->message = "ERROR IN AUTH";
+      return createDtoResponse(Status::CODE_500, dto);
     }
 
     const auto [status, response] = service.GET_comments(placeID, start, end);
+
+    if (status == Status::CODE_204)
+    { return createResponse(Status::CODE_204, "No content"); }
+
     return createDtoResponse(status, response);
   }
   ADD_CORS(getCommentsForPlace, "*", "GET")
@@ -260,10 +310,9 @@ public:
     info->addResponse< Object< DtoError > >(
       Status::CODE_416, "application/json");
     info->addResponse< Object< DtoError > >(
-      Status::CODE_404, "application/json");
-    info->addResponse< Object< DtoError > >(
       Status::CODE_401, "application/json");
-    info->addResponse< List< Object< DtoVisit_OUT > > >(
+    info->addResponse< String >(Status::CODE_204, "text/plain");
+    info->addResponse< oatpp::Vector< Object< DtoVisit_OUT > > >(
       Status::CODE_200, "application/json");
     info->addTag("User");
     info->addSecurityRequirement("User");
@@ -285,10 +334,19 @@ public:
       dto->type    = ErrorType::AUTH_BAD_CREDENTIALS;
       dto->message = "Bad credentials";
       return createDtoResponse(Status::CODE_401, dto);
+    } else if (service.authorize(authObject) == MobilService::Auth::ERR) {
+      auto dto     = DtoError::createShared();
+      dto->type    = ErrorType::SERVER_DATABASE;
+      dto->message = "ERROR IN AUTH";
+      return createDtoResponse(Status::CODE_500, dto);
     }
 
     const auto [status, response] =
       service.GET_visitsByPlace(placeID, start, end);
+
+    if (status == Status::CODE_204)
+    { return createResponse(Status::CODE_204, "No content"); }
+
     return createDtoResponse(status, response);
   }
   ADD_CORS(getVisitsForPlace, "*", "GET")
@@ -301,10 +359,9 @@ public:
     info->addResponse< Object< DtoError > >(
       Status::CODE_416, "application/json");
     info->addResponse< Object< DtoError > >(
-      Status::CODE_404, "application/json");
-    info->addResponse< Object< DtoError > >(
       Status::CODE_401, "application/json");
-    info->addResponse< List< Object< DtoVisit_OUT > > >(
+    info->addResponse< String >(Status::CODE_204, "text/plain");
+    info->addResponse< oatpp::Vector< Object< DtoVisit_OUT > > >(
       Status::CODE_200, "application/json");
     info->addTag("User");
     info->addSecurityRequirement("User");
@@ -326,10 +383,20 @@ public:
       dto->type    = ErrorType::AUTH_BAD_CREDENTIALS;
       dto->message = "Bad credentials";
       return createDtoResponse(Status::CODE_401, dto);
+    } else if (service.authorize(authObject) == MobilService::Auth::ERR) {
+      auto dto     = DtoError::createShared();
+      dto->type    = ErrorType::SERVER_DATABASE;
+      dto->message = "ERROR IN AUTH";
+      return createDtoResponse(Status::CODE_500, dto);
     }
 
     const auto [status, response] =
       service.GET_visitsByUser(userID, start, end);
+
+    if (status == Status::CODE_204) {
+      return createResponse(Status::CODE_204, "No content");
+    }
+
     return createDtoResponse(status, response);
   }
   ADD_CORS(getVisitsForUser, "*", "GET")
@@ -363,6 +430,11 @@ public:
       dto->type    = ErrorType::AUTH_BAD_CREDENTIALS;
       dto->message = "Bad credentials";
       return createDtoResponse(Status::CODE_401, dto);
+    } else if (service.authorize(authObject) == MobilService::Auth::ERR) {
+      auto dto     = DtoError::createShared();
+      dto->type    = ErrorType::SERVER_DATABASE;
+      dto->message = "ERROR IN AUTH";
+      return createDtoResponse(Status::CODE_500, dto);
     }
 
     const auto [status, response] = service.GET_ranking(start, end);
@@ -400,6 +472,11 @@ public:
       dto->type    = ErrorType::AUTH_BAD_CREDENTIALS;
       dto->message = "Bad credentials";
       return createDtoResponse(Status::CODE_401, dto);
+    } else if (service.authorize(authObject) == MobilService::Auth::ERR) {
+      auto dto     = DtoError::createShared();
+      dto->type    = ErrorType::SERVER_DATABASE;
+      dto->message = "ERROR IN AUTH";
+      return createDtoResponse(Status::CODE_500, dto);
     }
 
     const auto [status, response] =
@@ -440,6 +517,11 @@ public:
       dto->type    = ErrorType::AUTH_BAD_CREDENTIALS;
       dto->message = "Bad credentials";
       return createDtoResponse(Status::CODE_401, dto);
+    } else if (service.authorize(authObject) == MobilService::Auth::ERR) {
+      auto dto     = DtoError::createShared();
+      dto->type    = ErrorType::SERVER_DATABASE;
+      dto->message = "ERROR IN AUTH";
+      return createDtoResponse(Status::CODE_500, dto);
     }
 
     const auto [status, response] = service.POST_comments(
@@ -451,17 +533,19 @@ public:
   // ADMIN API ENDPOINTS -------------------------------------------------------
 
   ENDPOINT_INFO(putAdminAddUpdatePlaces) {
-    info->summary = "Add or update place in database.";
+    info->summary = "Add or update place in database. Update when: matching name";
     info->addResponse< Object< DtoError > >(
       Status::CODE_500, "application/json");
     info->addResponse< Object< DtoError > >(
       Status::CODE_422, "application/json");
     info->addResponse< Object< DtoPlace_OUT > >(
-      Status::CODE_204, "application/json");
+      Status::CODE_200, "application/json");
     info->addResponse< Object< DtoError > >(
       Status::CODE_403, "application/json");
     info->addResponse< Object< DtoError > >(
       Status::CODE_401, "application/json");
+    info->addResponse< Object< DtoError > >(
+      Status::CODE_409, "application/json");
     info->addResponse< Object< DtoPlace_OUT > >(
       Status::CODE_201, "application/json");
     info->addConsumes< Object< DtoPlace_IN > >(
@@ -491,6 +575,11 @@ public:
       dto->type    = ErrorType::AUTH_PERMISSION;
       dto->message = "Insufficient permission";
       return createDtoResponse(Status::CODE_403, dto);
+    } else if (auth == MobilService::Auth::ERR) {
+      auto dto     = DtoError::createShared();
+      dto->type    = ErrorType::SERVER_DATABASE;
+      dto->message = "ERROR IN AUTH";
+      return createDtoResponse(Status::CODE_500, dto);
     }
 
     const auto [status, response] = service.PUT_places(
@@ -535,6 +624,11 @@ public:
       dto->type    = ErrorType::AUTH_PERMISSION;
       dto->message = "Insufficient permission";
       return createDtoResponse(Status::CODE_403, dto);
+    } else if (auth == MobilService::Auth::ERR) {
+      auto dto     = DtoError::createShared();
+      dto->type    = ErrorType::SERVER_DATABASE;
+      dto->message = "ERROR IN AUTH";
+      return createDtoResponse(Status::CODE_500, dto);
     }
 
     const auto [status, response] = service.DELETE_places(placeID);
@@ -543,7 +637,8 @@ public:
   ADD_CORS(deleteAdminRemovePlaces, "*", "DELETE")
 
   ENDPOINT_INFO(putAdminAddUpdateUsers) {
-    info->summary = "Add or update user in database.";
+    info->summary = "Add or update user in database. Update when: matching "
+                    "username";
     info->addResponse< Object< DtoError > >(
       Status::CODE_500, "application/json");
     info->addResponse< Object< DtoError > >(
@@ -553,7 +648,7 @@ public:
     info->addResponse< Object< DtoError > >(
       Status::CODE_401, "application/json");
     info->addResponse< Object< DtoUser_OUT > >(
-      Status::CODE_204, "application/json");
+      Status::CODE_200, "application/json");
     info->addResponse< Object< DtoUser_OUT > >(
       Status::CODE_201, "application/json");
     info->addConsumes< Object< DtoUser_IN > >("application/json", "User data");
@@ -582,6 +677,11 @@ public:
       dto->type    = ErrorType::AUTH_PERMISSION;
       dto->message = "Insufficient permission";
       return createDtoResponse(Status::CODE_403, dto);
+    } else if (auth == MobilService::Auth::ERR) {
+      auto dto     = DtoError::createShared();
+      dto->type    = ErrorType::SERVER_DATABASE;
+      dto->message = "ERROR IN AUTH";
+      return createDtoResponse(Status::CODE_500, dto);
     }
 
     const auto [status, response] = service.PUT_users(
@@ -626,6 +726,11 @@ public:
       dto->type    = ErrorType::AUTH_PERMISSION;
       dto->message = "Insufficient permission";
       return createDtoResponse(Status::CODE_403, dto);
+    } else if (auth == MobilService::Auth::ERR) {
+      auto dto     = DtoError::createShared();
+      dto->type    = ErrorType::SERVER_DATABASE;
+      dto->message = "ERROR IN AUTH";
+      return createDtoResponse(Status::CODE_500, dto);
     }
 
     const auto [status, response] = service.DELETE_users(userID);
@@ -634,7 +739,7 @@ public:
   ADD_CORS(deleteAdminRemoveUsers, "*", "DELETE")
 
   ENDPOINT_INFO(putAdminAddUpdateComments) {
-    info->summary = "Add or update comment in database.";
+    info->summary = "Add or update comment in database. Update when: matching placeID and userID";
     info->addResponse< Object< DtoError > >(
       Status::CODE_500, "application/json");
     info->addResponse< Object< DtoError > >(
@@ -644,7 +749,7 @@ public:
     info->addResponse< Object< DtoError > >(
       Status::CODE_401, "application/json");
     info->addResponse< Object< DtoComment_OUT > >(
-      Status::CODE_204, "application/json");
+      Status::CODE_200, "application/json");
     info->addResponse< Object< DtoComment_OUT > >(
       Status::CODE_201, "application/json");
     info->addConsumes< Object< DtoAdminComment_IN > >(
@@ -674,6 +779,11 @@ public:
       dto->type    = ErrorType::AUTH_PERMISSION;
       dto->message = "Insufficient permission";
       return createDtoResponse(Status::CODE_403, dto);
+    } else if (auth == MobilService::Auth::ERR) {
+      auto dto     = DtoError::createShared();
+      dto->type    = ErrorType::SERVER_DATABASE;
+      dto->message = "ERROR IN AUTH";
+      return createDtoResponse(Status::CODE_500, dto);
     }
 
     const auto [status, response] = service.PUT_comments(
@@ -718,6 +828,11 @@ public:
       dto->type    = ErrorType::AUTH_PERMISSION;
       dto->message = "Insufficient permission";
       return createDtoResponse(Status::CODE_403, dto);
+    } else if (auth == MobilService::Auth::ERR) {
+      auto dto     = DtoError::createShared();
+      dto->type    = ErrorType::SERVER_DATABASE;
+      dto->message = "ERROR IN AUTH";
+      return createDtoResponse(Status::CODE_500, dto);
     }
 
     const auto [status, response] = service.DELETE_comments(commentID);
@@ -726,7 +841,8 @@ public:
   ADD_CORS(deleteAdminRemoveComments, "*", "DELETE")
 
   ENDPOINT_INFO(putAdminAddUpdateVisits) {
-    info->summary = "Add or update visit in database.";
+    info->summary = "Add or update visit in database. Update when: matching "
+                    "placeID and userID";
     info->addResponse< Object< DtoError > >(
       Status::CODE_500, "application/json");
     info->addResponse< Object< DtoError > >(
@@ -736,7 +852,7 @@ public:
     info->addResponse< Object< DtoError > >(
       Status::CODE_401, "application/json");
     info->addResponse< Object< DtoVisit_OUT > >(
-      Status::CODE_204, "application/json");
+      Status::CODE_200, "application/json");
     info->addResponse< Object< DtoVisit_OUT > >(
       Status::CODE_201, "application/json");
     info->addConsumes< Object< DtoAdminVisit_IN > >(
@@ -766,6 +882,11 @@ public:
       dto->type    = ErrorType::AUTH_PERMISSION;
       dto->message = "Insufficient permission";
       return createDtoResponse(Status::CODE_403, dto);
+    } else if (auth == MobilService::Auth::ERR) {
+      auto dto     = DtoError::createShared();
+      dto->type    = ErrorType::SERVER_DATABASE;
+      dto->message = "ERROR IN AUTH";
+      return createDtoResponse(Status::CODE_500, dto);
     }
 
     const auto [status, response] =
@@ -810,6 +931,11 @@ public:
       dto->type    = ErrorType::AUTH_PERMISSION;
       dto->message = "Insufficient permission";
       return createDtoResponse(Status::CODE_403, dto);
+    } else if (auth == MobilService::Auth::ERR) {
+      auto dto     = DtoError::createShared();
+      dto->type    = ErrorType::SERVER_DATABASE;
+      dto->message = "ERROR IN AUTH";
+      return createDtoResponse(Status::CODE_500, dto);
     }
 
     const auto [status, response] = service.DELETE_visits(visitID);

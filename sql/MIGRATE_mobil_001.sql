@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS Comments
     UserID   INT          NOT NULL REFERENCES Users (ID),
     PlaceID  INT          NOT NULL REFERENCES Places (ID),
     Content  VARCHAR(500) NOT NULL,
-    TimeStmp TIMESTAMP    NOT NULL             DEFAULT CURRENT_TIMESTAMP,
+    TimeStmp TIMESTAMP    NOT NULL,
     Likes    INT          NOT NULL             DEFAULT 0
 );
 
@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS Visits
     ID       INT       NOT NULL PRIMARY KEY DEFAULT nextval('genid'),
     UserID   INT       NOT NULL REFERENCES Users (ID),
     PlaceID  INT       NOT NULL REFERENCES Places (ID),
-    TimeStmp TIMESTAMP NOT NULL             DEFAULT CURRENT_TIMESTAMP
+    TimeStmp TIMESTAMP NOT NULL
 );
 
 -- 3. INSERT
@@ -67,20 +67,25 @@ VALUES ('Admin 0', 'admin0', 'admin', TRUE),
        ('Example User 4', 'example-user-4', 'example-password-4', FALSE)
 ON CONFLICT (ID) DO NOTHING;
 
-INSERT INTO Comments (UserID, PlaceID, Content)
-VALUES (6, 0, 'Example comment 0'),
-       (7, 0, 'Example comment 1'),
-       (8, 0, 'Example comment 2'),
-       (9, 0, 'Example comment 3'),
-       (10, 0, 'Example comment 4')
+INSERT INTO Comments (UserID, PlaceID, Content, TimeStmp)
+VALUES (6, 0, 'Example comment 0', CURRENT_TIMESTAMP),
+       (7, 0, 'Example comment 1', CURRENT_TIMESTAMP),
+       (8, 0, 'Example comment 2', CURRENT_TIMESTAMP),
+       (9, 0, 'Example comment 3', CURRENT_TIMESTAMP),
+       (10, 0, 'Example comment 4', CURRENT_TIMESTAMP)
 ON CONFLICT (ID) DO NOTHING;
 
-INSERT INTO Visits (UserID, PlaceID)
-VALUES (6, 1),
-       (7, 1),
-       (8, 1),
-       (9, 1),
-       (10, 1)
+INSERT INTO Visits (UserID, PlaceID, TimeStmp)
+VALUES (6, 1, CURRENT_TIMESTAMP),
+       (7, 1, CURRENT_TIMESTAMP),
+       (8, 1, CURRENT_TIMESTAMP),
+       (9, 1, CURRENT_TIMESTAMP),
+       (10, 1, CURRENT_TIMESTAMP),
+       (6, 0, CURRENT_TIMESTAMP),
+       (7, 0, CURRENT_TIMESTAMP),
+       (8, 0, CURRENT_TIMESTAMP),
+       (9, 0, CURRENT_TIMESTAMP),
+       (10, 0, CURRENT_TIMESTAMP)
 ON CONFLICT (ID) DO NOTHING;
 
 -- 4. VIEW
@@ -181,13 +186,13 @@ AS
 $$
 BEGIN
     RETURN QUERY
-        SELECT ID
+        SELECT Places.ID
         FROM Places
-        WHERE Name = arg_name;
+        WHERE Places.Name = arg_name;
 END
 $$;
 
-CREATE OR REPLACE FUNCTION F_EXISTS_USERS(arg_username VARCHAR(100))
+CREATE OR REPLACE FUNCTION F_EXISTS_USERS(arg_username VARCHAR(100), arg_login VARCHAR(100))
     RETURNS TABLE
             (
                 ID INT
@@ -197,13 +202,13 @@ AS
 $$
 BEGIN
     RETURN QUERY
-        SELECT ID
+        SELECT Users.ID
         FROM Users
-        WHERE Username = arg_username;
+        WHERE Users.Username = arg_username OR Users.Login = arg_login;
 END
 $$;
 
-CREATE OR REPLACE FUNCTION F_EXISTS_VISITS(arg_user_id INT, arg_place_id INT)
+CREATE OR REPLACE FUNCTION F_EXISTS_VISITS(arg_visit_id INT, arg_user_id INT, arg_place_id INT)
     RETURNS TABLE
             (
                 ID INT
@@ -213,30 +218,30 @@ AS
 $$
 BEGIN
     RETURN QUERY
-        SELECT ID
+        SELECT Visits.ID
         FROM Visits
-        WHERE UserID = arg_user_id
-          AND PlaceID = arg_place_id;
+        WHERE (Visits.UserID = arg_user_id
+          AND Visits.PlaceID = arg_place_id) OR Visits.ID = arg_visit_id;
 END
 $$;
 
-CREATE OR REPLACE FUNCTION F_EXISTS_COMMENTS(arg_user_id INT, arg_place_id INT)
+CREATE OR REPLACE FUNCTION F_EXISTS_COMMENTS(arg_comment_id INT, arg_user_id INT, arg_place_id INT)
     RETURNS TABLE
             (
                 ID       INT,
                 Content  VARCHAR(500),
-                TimeStmp TIMESTAMP
+                TimeStmp TEXT
             )
     LANGUAGE plpgsql
 AS
 $$
 BEGIN
     RETURN QUERY
-        SELECT ID, Content, TimeStmp
+        SELECT Comments.ID, Comments.Content, to_char(Comments.TimeStmp, 'HH24:MI:SS DD/MM/YYYY')
         FROM Comments
-        WHERE UserID = arg_user_id
-          AND PlaceID = arg_place_id
-        ORDER BY TimeStmp DESC;
+        WHERE (Comments.UserID = arg_user_id
+          AND Comments.PlaceID = arg_place_id) OR Comments.ID = arg_comment_id
+        ORDER BY Comments.TimeStmp DESC;
 END
 $$;
 
@@ -253,12 +258,12 @@ AS
 $$
 BEGIN
     RETURN QUERY
-        SELECT ID,
-               Username,
-               Points
+        SELECT Users.ID,
+               Users.Username,
+               Users.Points
         FROM Users
-        WHERE Login = arg_login
-          AND Password = arg_password;
+        WHERE Users.Login = arg_login
+          AND Users.Password = arg_password;
 END
 $$;
 
@@ -276,7 +281,7 @@ BEGIN
     RETURN QUERY
         INSERT INTO Users (Username, Login, Password)
             VALUES (arg_username, arg_login, arg_password)
-            RETURNING ID, Username, Points;
+            RETURNING Users.ID, Users.Username, Users.Points;
 END
 $$;
 
@@ -294,12 +299,12 @@ AS
 $$
 BEGIN
     RETURN QUERY
-        SELECT ID,
-               Name,
-               Description,
-               Location
+        SELECT PlacesAlphabetically.PlaceID,
+               PlacesAlphabetically.Name,
+               PlacesAlphabetically.Description,
+               PlacesAlphabetically.Location
         FROM PlacesAlphabetically
-        WHERE ID = arg_id;
+        WHERE PlacesAlphabetically.PlaceID = arg_id;
 END
 $$;
 
@@ -316,12 +321,12 @@ AS
 $$
 BEGIN
     RETURN QUERY
-        SELECT ID,
-               Name,
-               Description,
-               Location
+        SELECT PlacesAlphabetically.PlaceID,
+               PlacesAlphabetically.Name,
+               PlacesAlphabetically.Description,
+               PlacesAlphabetically.Location
         FROM PlacesAlphabetically
-        WHERE Name LIKE '%' || arg_name || '%';
+        WHERE PlacesAlphabetically.Name LIKE '%' || arg_name || '%';
 END
 $$;
 
@@ -338,12 +343,12 @@ AS
 $$
 BEGIN
     RETURN QUERY
-        SELECT ID,
-               Name,
-               Description,
-               Location
+        SELECT PlacesAlphabetically.PlaceID,
+               PlacesAlphabetically.Name,
+               PlacesAlphabetically.Description,
+               PlacesAlphabetically.Location
         FROM PlacesAlphabetically
-        WHERE Location LIKE '%' || arg_location || '%';
+        WHERE PlacesAlphabetically.Location LIKE '%' || arg_location || '%';
 END
 $$;
 
@@ -360,12 +365,12 @@ AS
 $$
 BEGIN
     RETURN QUERY
-        SELECT ID,
-               Name,
-               Description,
-               Location
+        SELECT PlacesAlphabetically.PlaceID,
+               PlacesAlphabetically.Name,
+               PlacesAlphabetically.Description,
+               PlacesAlphabetically.Location
         FROM PlacesAlphabetically
-        WHERE Description LIKE '%' || arg_desc || '%';
+        WHERE PlacesAlphabetically.Description LIKE '%' || arg_desc || '%';
 END
 $$;
 
@@ -381,11 +386,11 @@ AS
 $$
 BEGIN
     RETURN QUERY
-        SELECT ID,
-               Username,
-               Points
+        SELECT Users.ID,
+               Users.Username,
+               Users.Points
         FROM Users
-        WHERE ID = arg_id;
+        WHERE Users.ID = arg_id;
 END
 $$;
 
@@ -401,11 +406,31 @@ AS
 $$
 BEGIN
     RETURN QUERY
-        SELECT ID,
-               Username,
-               Points
+        SELECT Users.ID AS ID,
+               Users.Username AS Username,
+               Users.Points AS Points
         FROM Users
-        WHERE Username LIKE '%' || arg_username || '%';
+        WHERE Users.Username LIKE  '%' || arg_username || '%';
+END
+$$;
+
+CREATE OR REPLACE FUNCTION F_GET_USERS_LOGIN(arg_login VARCHAR(100))
+    RETURNS TABLE
+            (
+                ID       INT,
+                Username VARCHAR(100),
+                Points   INT
+            )
+    LANGUAGE plpgsql
+AS
+$$
+BEGIN
+    RETURN QUERY
+        SELECT Users.ID,
+               Users.Username,
+               Users.Points
+        FROM Users
+        WHERE Users.Login = arg_login;
 END
 $$;
 
@@ -414,8 +439,9 @@ CREATE OR REPLACE FUNCTION F_GET_COMMENTS(arg_place_id INT)
             (
                 ID       INT,
                 UserID   INT,
+                PlaceID  INT,
                 Content  VARCHAR(500),
-                TimeStmp TIMESTAMP,
+                TimeStmp TEXT,
                 Likes    INT
             )
     LANGUAGE plpgsql
@@ -423,15 +449,15 @@ AS
 $$
 BEGIN
     RETURN QUERY
-        SELECT ID,
-               UserID,
-               PlaceID,
-               Content,
-               TimeStmp,
-               Likes
+        SELECT Comments.ID,
+               Comments.UserID,
+               Comments.PlaceID,
+               Comments.Content,
+               to_char(Comments.TimeStmp, 'HH24:MI:SS DD/MM/YYYY'),
+               Comments.Likes
         FROM Comments
-        WHERE PlaceID = arg_place_id
-        ORDER BY TimeStmp DESC;
+        WHERE Comments.PlaceID = arg_place_id
+        ORDER BY Comments.TimeStmp DESC;
 END
 $$;
 
@@ -441,20 +467,20 @@ CREATE OR REPLACE FUNCTION F_GET_VISITS_PLACE(arg_place_id INT)
                 ID       INT,
                 UserID   INT,
                 PlaceID  INT,
-                TimeStmp TIMESTAMP
+                TimeStmp TEXT
             )
     LANGUAGE plpgsql
 AS
 $$
 BEGIN
     RETURN QUERY
-        SELECT ID,
-               UserID,
-               PlaceID,
-               TimeStmp
+        SELECT Visits.ID,
+               Visits.UserID,
+               Visits.PlaceID,
+               to_char(Visits.TimeStmp, 'HH24:MI:SS DD/MM/YYYY')
         FROM Visits
-        WHERE PlaceID = arg_place_id
-        ORDER BY TimeStmp DESC;
+        WHERE Visits.PlaceID = arg_place_id
+        ORDER BY Visits.TimeStmp DESC;
 END
 $$;
 
@@ -464,20 +490,20 @@ CREATE OR REPLACE FUNCTION F_GET_VISITS_USER(arg_user_id INT)
                 ID       INT,
                 UserID   INT,
                 PlaceID  INT,
-                TimeStmp TIMESTAMP
+                TimeStmp TEXT
             )
     LANGUAGE plpgsql
 AS
 $$
 BEGIN
     RETURN QUERY
-        SELECT ID,
-               UserID,
-               PlaceID,
-               TimeStmp
+        SELECT Visits.ID,
+               Visits.UserID,
+               Visits.PlaceID,
+               to_char(Visits.TimeStmp, 'HH24:MI:SS DD/MM/YYYY')
         FROM Visits
-        WHERE UserID = arg_user_id
-        ORDER BY TimeStmp DESC;
+        WHERE Visits.UserID = arg_user_id
+        ORDER BY Visits.TimeStmp DESC;
 END
 $$;
 
@@ -493,9 +519,9 @@ AS
 $$
 BEGIN
     RETURN QUERY
-        SELECT ID,
-               Username,
-               Points
+        SELECT Ranking.UserID,
+               Ranking.Username,
+               Ranking.Points
         FROM Ranking;
 END
 $$;
@@ -510,9 +536,9 @@ AS
 $$
 BEGIN
     RETURN QUERY
-        SELECT ID
+        SELECT Places.ID
         FROM Places
-        WHERE Key = arg_key;
+        WHERE Places.Key = arg_key;
 END
 $$;
 
@@ -522,7 +548,7 @@ CREATE OR REPLACE FUNCTION F_POST_VISITS_INSERT(arg_username VARCHAR(100), arg_p
                 ID       INT,
                 UserID   INT,
                 PlaceID  INT,
-                TimeStmp TIMESTAMP
+                TimeStmp TEXT
             )
     LANGUAGE plpgsql
 AS
@@ -530,11 +556,12 @@ $$
 DECLARE
     user_id INT;
 BEGIN
-    SELECT ID INTO user_id FROM Users WHERE Username = arg_username;
+    SELECT Users.ID INTO user_id FROM Users WHERE Users.Username = arg_username;
+    UPDATE Users SET Points = Users.Points + 1 WHERE Users.ID = user_id;
     RETURN QUERY
         INSERT INTO Visits (UserID, PlaceID, TimeStmp)
             VALUES (user_id, arg_place_id, CURRENT_TIMESTAMP)
-            RETURNING ID, UserID, PlaceID, TimeStmp;
+            RETURNING Visits.ID, Visits.UserID, Visits.PlaceID, to_char(Visits.TimeStmp, 'HH24:MI:SS DD/MM/YYYY');
 END
 $$;
 
@@ -549,12 +576,12 @@ $$
 DECLARE
     user_id INT;
 BEGIN
-    SELECT ID INTO user_id FROM Users WHERE Username = arg_username;
+    SELECT Users.ID INTO user_id FROM Users WHERE Users.Username = arg_username;
     RETURN QUERY
-        SELECT ID
+        SELECT Visits.ID
         FROM VISITS
-        WHERE UserID = user_id
-          AND PlaceID = arg_place_id;
+        WHERE Visits.UserID = user_id
+          AND Visits.PlaceID = arg_place_id;
 END
 $$;
 
@@ -565,7 +592,7 @@ CREATE OR REPLACE FUNCTION F_POST_COMMENTS_INSERT(arg_username VARCHAR(100), arg
                 UserID   INT,
                 PlaceID  INT,
                 Content  VARCHAR(500),
-                TimeStmp TIMESTAMP,
+                TimeStmp TEXT,
                 Likes    INT
             )
     LANGUAGE plpgsql
@@ -574,11 +601,11 @@ $$
 DECLARE
     user_id INT;
 BEGIN
-    SELECT ID INTO user_id FROM Users WHERE Username = arg_username;
+    SELECT Users.ID INTO user_id FROM Users WHERE Users.Username = arg_username;
     RETURN QUERY
-        INSERT INTO Comments (UserID, PlaceID, Content)
-            VALUES (user_id, arg_place_id, arg_content)
-            RETURNING ID, UserID, PlaceID, Content, TimeStmp, Likes;
+        INSERT INTO Comments (UserID, PlaceID, Content, TimeStmp)
+            VALUES (user_id, arg_place_id, arg_content, CURRENT_TIMESTAMP)
+            RETURNING Comments.ID, Comments.UserID, Comments.PlaceID, Comments.Content, to_char(Comments.TimeStmp, 'HH24:MI:SS DD/MM/YYYY'), Comments.Likes;
 END
 $$;
 
@@ -602,8 +629,8 @@ BEGIN
                 Description = arg_description,
                 Location = arg_location,
                 Key = arg_key
-            WHERE ID = arg_id
-            RETURNING ID, Name, Description, Location;
+            WHERE Places.ID = arg_id
+            RETURNING Places.ID, Places.Name, Places.Description, Places.Location;
 END
 $$;
 
@@ -623,7 +650,7 @@ BEGIN
     RETURN QUERY
         INSERT INTO Places (Name, Description, Location, Key)
             VALUES (arg_name, arg_description, arg_location, arg_key)
-            RETURNING ID, Name, Description, Location;
+            RETURNING Places.ID, Places.Name, Places.Description, Places.Location;
 END
 $$;
 
@@ -641,8 +668,8 @@ $$
 BEGIN
     RETURN QUERY
         DELETE FROM Places
-            WHERE ID = arg_id
-            RETURNING ID, Name, Description, Location;
+            WHERE Places.ID = arg_id
+            RETURNING Places.ID, Places.Name, Places.Description, Places.Location;
 END
 $$;
 
@@ -665,8 +692,8 @@ BEGIN
                 Password = arg_password,
                 Admin = arg_admin,
                 Points = arg_points
-            WHERE ID = arg_id
-            RETURNING ID, Username, Points;
+            WHERE Users.ID = arg_id
+            RETURNING Users.ID, Users.Username, Users.Points;
 END
 $$;
 
@@ -685,7 +712,7 @@ BEGIN
     RETURN QUERY
         INSERT INTO Users (Username, Login, Password, Admin, Points)
             VALUES (arg_username, arg_login, arg_password, arg_admin, arg_points)
-            RETURNING ID, Username, Points;
+            RETURNING Users.ID, Users.Username, Users.Points;
 END
 $$;
 
@@ -700,10 +727,14 @@ CREATE OR REPLACE FUNCTION F_DELETE_USERS(arg_id INT)
 AS
 $$
 BEGIN
+    DELETE FROM Comments
+        WHERE Comments.UserID = arg_id;
+    DELETE FROM Visits
+        WHERE Visits.UserID = arg_id;
     RETURN QUERY
         DELETE FROM Users
-            WHERE ID = arg_id
-            RETURNING ID, Username, Points;
+            WHERE Users.ID = arg_id
+            RETURNING Users.ID, Users.Username, Users.Points;
 END
 $$;
 
@@ -713,7 +744,7 @@ CREATE OR REPLACE FUNCTION F_PUT_VISITS_UPDATE(arg_id INT, arg_user_id INT, arg_
                 ID       INT,
                 UserID   INT,
                 PlaceID  INT,
-                TimeStmp TIMESTAMP
+                TimeStmp TEXT
             )
     LANGUAGE plpgsql
 AS
@@ -723,8 +754,8 @@ BEGIN
         UPDATE Visits
             SET UserID = arg_user_id,
                 PlaceID = arg_place_id
-            WHERE ID = arg_id
-            RETURNING ID, UserID, PlaceID, TimeStmp;
+            WHERE Visits.ID = arg_id
+            RETURNING Visits.ID, Visits.UserID, Visits.PlaceID, to_char(Visits.TimeStmp, 'HH24:MI:SS DD/MM/YYYY');
 END
 $$;
 
@@ -734,16 +765,17 @@ CREATE OR REPLACE FUNCTION F_PUT_VISITS_INSERT(arg_user_id INT, arg_place_id INT
                 ID       INT,
                 UserID   INT,
                 PlaceID  INT,
-                TimeStmp TIMESTAMP
+                TimeStmp TEXT
             )
     LANGUAGE plpgsql
 AS
 $$
 BEGIN
+    UPDATE Users SET Points = Users.Points + 1 WHERE Users.ID = arg_user_id;
     RETURN QUERY
-        INSERT INTO Visits (UserID, PlaceID)
-            VALUES (arg_user_id, arg_place_id)
-            RETURNING ID, UserID, PlaceID, TimeStmp;
+        INSERT INTO Visits (UserID, PlaceID, TimeStmp)
+            VALUES (arg_user_id, arg_place_id, CURRENT_TIMESTAMP)
+            RETURNING Visits.ID, Visits.UserID, Visits.PlaceID, to_char(Visits.TimeStmp, 'HH24:MI:SS DD/MM/YYYY');
 END
 $$;
 
@@ -759,10 +791,11 @@ CREATE OR REPLACE FUNCTION F_DELETE_VISITS(arg_id INT)
 AS
 $$
 BEGIN
+    UPDATE Users SET Points = Users.Points - 1 WHERE Users.ID = (SELECT Visits.UserID FROM Visits WHERE Visits.ID = arg_id);
     RETURN QUERY
         DELETE FROM Visits
-            WHERE ID = arg_id
-            RETURNING ID, UserID, PlaceID, TimeStmp;
+            WHERE Visits.ID = arg_id
+            RETURNING Visits.ID, Visits.UserID, Visits.PlaceID, Visits.TimeStmp;
 END
 $$;
 
@@ -774,7 +807,7 @@ CREATE OR REPLACE FUNCTION F_PUT_COMMENTS_UPDATE(arg_id INT, arg_user_id INT, ar
                 UserID   INT,
                 PlaceID  INT,
                 Content  VARCHAR(500),
-                TimeStmp TIMESTAMP,
+                TimeStmp TEXT,
                 Likes    INT
             )
     LANGUAGE plpgsql
@@ -786,8 +819,8 @@ BEGIN
             SET UserID = arg_user_id,
                 PlaceID = arg_place_id,
                 Content = arg_content
-            WHERE ID = arg_id
-            RETURNING ID, UserID, PlaceID, Content, TimeStmp, Likes;
+            WHERE Comments.ID = arg_id
+            RETURNING Comments.ID, Comments.UserID, Comments.PlaceID, Comments.Content, to_char(Comments.TimeStmp, 'HH24:MI:SS DD/MM/YYYY'), Comments.Likes;
 END
 $$;
 
@@ -798,7 +831,7 @@ CREATE OR REPLACE FUNCTION F_PUT_COMMENTS_INSERT(arg_user_id INT, arg_place_id I
                 UserID   INT,
                 PlaceID  INT,
                 Content  VARCHAR(500),
-                TimeStmp TIMESTAMP,
+                TimeStmp TEXT,
                 Likes    INT
             )
     LANGUAGE plpgsql
@@ -806,9 +839,9 @@ AS
 $$
 BEGIN
     RETURN QUERY
-        INSERT INTO Comments (UserID, PlaceID, Content)
-            VALUES (arg_user_id, arg_place_id, arg_content)
-            RETURNING ID, UserID, PlaceID, Content, TimeStmp, Likes;
+        INSERT INTO Comments (UserID, PlaceID, Content, TimeStmp)
+            VALUES (arg_user_id, arg_place_id, arg_content, CURRENT_TIMESTAMP)
+            RETURNING Comments.ID, Comments.UserID, Comments.PlaceID, Comments.Content, to_char(Comments.TimeStmp, 'HH24:MI:SS DD/MM/YYYY'), Comments.Likes;
 END
 $$;
 
@@ -828,8 +861,8 @@ $$
 BEGIN
     RETURN QUERY
         DELETE FROM Comments
-            WHERE ID = arg_id
-            RETURNING ID, UserID, PlaceID, Content, TimeStmp, Likes;
+            WHERE Comments.ID = arg_id
+            RETURNING Comments.ID, Comments.UserID, Comments.PlaceID, Comments.Content, Comments.TimeStmp, Comments.Likes;
 END
 $$;
 
@@ -840,17 +873,17 @@ CREATE OR REPLACE FUNCTION F_AUTHORIZE(arg_login VARCHAR(100), arg_password VARC
                 ID       INT,
                 Username VARCHAR(100),
                 Admin    BOOLEAN,
-                Points   INT
+                Points  INT
             )
     LANGUAGE plpgsql
 AS
 $$
 BEGIN
     RETURN QUERY
-        SELECT ID,
-               Username,
-               Admin,
-               Points
+        SELECT Users.ID,
+               Users.Username,
+               Users.Admin,
+               Users.Points
         FROM Users
         WHERE Login = arg_login
           AND Password = arg_password;

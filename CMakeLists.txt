@@ -72,6 +72,7 @@ add_library(uni_mobil_p-lib
         src/dto/DtoRegister_IN.hpp
         src/dto/DtoAdminVisit_IN.hpp
         src/dto/DtoAdminComment_IN.hpp
+        src/dto/DtoAuth_DB.hpp
 )
 
 find_package(oatpp 1.3.0 REQUIRED)
@@ -123,7 +124,7 @@ add_definitions(
         -DDATABASE_MIGRATIONS="${CMAKE_CURRENT_SOURCE_DIR}/sql"
 
         ## TODO: USE THIS TO SET THE CONNECTION STRING
-        -DPG_CONNECTION_STRING="host=... port=... dbname=... user=... password=..."
+        -DPG_CONNECTION_STRING="host=localhost port=5432 dbname=mobil_db user=Supervisor password=Supervisor"
 )
 
 ################ TESTS #################

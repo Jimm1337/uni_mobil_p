@@ -9,27 +9,27 @@
 class DtoPlace_OUT : public oatpp::DTO {
   DTO_INIT(DtoPlace_OUT, DTO)
 
-  DTO_FIELD(Int32, PlaceID);
-  DTO_FIELD(String, Name);
-  DTO_FIELD(String, Description);
-  DTO_FIELD(String, Location);
+  DTO_FIELD(Int32, id);
+  DTO_FIELD(String, name);
+  DTO_FIELD(String, description);
+  DTO_FIELD(String, location);
 
-  DTO_FIELD_INFO(PlaceID) {
+  DTO_FIELD_INFO(id) {
     info->required    = true;
     info->description = "Place ID";
   }
 
-  DTO_FIELD_INFO(Name) {
+  DTO_FIELD_INFO(name) {
     info->required    = true;
     info->description = "Place name";
   }
 
-  DTO_FIELD_INFO(Description) {
+  DTO_FIELD_INFO(description) {
     info->required    = false;
     info->description = "Place description";
   }
 
-  DTO_FIELD_INFO(Location) {
+  DTO_FIELD_INFO(location) {
     info->required    = true;
     info->description = "Place location";
   }

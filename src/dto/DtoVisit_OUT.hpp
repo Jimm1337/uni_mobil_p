@@ -9,30 +9,30 @@
 class DtoVisit_OUT : public oatpp::DTO {
   DTO_INIT(DtoVisit_OUT, DTO)
 
-  DTO_FIELD(Int32, VisitID);
-  DTO_FIELD(Int32, UserID);
-  DTO_FIELD(Int32, PlaceID);
-  DTO_FIELD(String, Time);
+  DTO_FIELD(Int32, id);
+  DTO_FIELD(Int32, userid);
+  DTO_FIELD(Int32, placeid);
+  DTO_FIELD(String, timestmp);
 
-  DTO_FIELD_INFO(VisitID) {
+  DTO_FIELD_INFO(id) {
     info->required    = true;
     info->description = "Visit ID";
   }
 
-  DTO_FIELD_INFO(UserID) {
+  DTO_FIELD_INFO(userid) {
     info->required    = true;
     info->description = "User ID";
   }
 
-  DTO_FIELD_INFO(PlaceID) {
+  DTO_FIELD_INFO(placeid) {
     info->required    = true;
     info->description = "Place ID";
   }
 
-  DTO_FIELD_INFO(Time) {
+  DTO_FIELD_INFO(timestmp) {
     info->required    = true;
     info->description = "Visit Time";
-    info->pattern     = "HH:MM DD/MM/YYYY";
+    info->pattern     = "HH24:MM:SS DD/MM/YYYY (UTC)";
   }
 };
 

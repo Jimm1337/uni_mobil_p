@@ -9,40 +9,40 @@
 class DtoComment_OUT : public oatpp::DTO {
   DTO_INIT(DtoComment_OUT, DTO)
 
-  DTO_FIELD(Int32, CommentID);
-  DTO_FIELD(Int32, UserID);
-  DTO_FIELD(Int32, PlaceID);
-  DTO_FIELD(String, Content);
-  DTO_FIELD(String, Time);
-  DTO_FIELD(Int32, Likes);
+  DTO_FIELD(Int32, id);
+  DTO_FIELD(Int32, userid);
+  DTO_FIELD(Int32, placeid);
+  DTO_FIELD(String, content);
+  DTO_FIELD(String, timestmp);
+  DTO_FIELD(Int32, likes);
 
-  DTO_FIELD_INFO(CommentID) {
+  DTO_FIELD_INFO(id) {
     info->required    = true;
     info->description = "Comment ID";
   }
 
-  DTO_FIELD_INFO(UserID) {
+  DTO_FIELD_INFO(userid) {
     info->required    = true;
     info->description = "User ID";
   }
 
-  DTO_FIELD_INFO(PlaceID) {
+  DTO_FIELD_INFO(placeid) {
     info->required    = true;
     info->description = "Place ID";
   }
 
-  DTO_FIELD_INFO(Content) {
+  DTO_FIELD_INFO(content) {
     info->required    = true;
     info->description = "Comment Content";
   }
 
-  DTO_FIELD_INFO(Time) {
+  DTO_FIELD_INFO(timestmp) {
     info->required    = true;
     info->description = "Comment Time";
-    info->pattern = "HH:MM DD/MM/YYYY";
+    info->pattern = "HH24:MM:SS DD/MM/YYYY (UTC)";
   }
 
-  DTO_FIELD_INFO(Likes) {
+  DTO_FIELD_INFO(likes) {
     info->required    = true;
     info->description = "Number of likes";
   }

@@ -34,12 +34,21 @@ public:
 
   QUERY(
     existsUsers,
-    "SELECT * FROM F_EXISTS_USERS(:username);",
-    PARAM(oatpp::String, username))
+    "SELECT * FROM F_EXISTS_USERS(:username, :login);",
+    PARAM(oatpp::String, username),
+    PARAM(oatpp::String, login))
 
   QUERY(
     existsVisits,
-    "SELECT * FROM F_EXISTS_VISITS(:userID, :placeID);",
+    "SELECT * FROM F_EXISTS_VISITS(:visitID, :userID, :placeID);",
+    PARAM(oatpp::Int32, visitID),
+    PARAM(oatpp::Int32, userID),
+    PARAM(oatpp::Int32, placeID))
+
+  QUERY(
+    existsComments,
+    "SELECT * FROM F_EXISTS_COMMENTS(:commentID, :userID, :placeID);",
+    PARAM(oatpp::Int32, commentID),
     PARAM(oatpp::Int32, userID),
     PARAM(oatpp::Int32, placeID))
 
@@ -61,7 +70,9 @@ public:
   // USER API ------------------------------------------------------------------
 
   QUERY(
-    getPlacesID, "SELECT * FROM F_GET_PLACES(:placeID);", PARAM(oatpp::Int32, placeID))
+    getPlacesID,
+    "SELECT * FROM F_GET_PLACES_ID(:placeID);",
+    PARAM(oatpp::Int32, placeID))
 
   QUERY(
     getPlacesName,
@@ -78,6 +89,8 @@ public:
     "SELECT * FROM F_GET_PLACES_DESC(:description);",
     PARAM(oatpp::String, description))
 
+  QUERY(getPlacesAll, "SELECT id, name, description, location FROM Places;")
+
   QUERY(
     getUsersID,
     "SELECT * FROM F_GET_USERS_ID(:userID);",
@@ -89,21 +102,38 @@ public:
     PARAM(oatpp::String, username))
 
   QUERY(
+    getUsersLogin,
+    "SELECT * FROM F_GET_USERS_LOGIN(:login);",
+    PARAM(oatpp::String, login))
+
+  QUERY(getUsersAll, "SELECT id, username, points FROM Users;")
+
+  QUERY(
     getComments,
-    "SELECT * FROM F_GET_COMMENTS(:placeID);",
-    PARAM(oatpp::Int32, placeID))
+    "SELECT * FROM F_GET_COMMENTS(:placeID) OFFSET :start LIMIT :end - :start;",
+    PARAM(oatpp::Int32, placeID),
+    PARAM(oatpp::Int32, start),
+    PARAM(oatpp::Int32, end))
 
   QUERY(
     getVisitsByPlace,
-    "SELECT * FROM F_GET_VISITS_PLACE(:placeID);",
-    PARAM(oatpp::Int32, placeID))
+    "SELECT * FROM F_GET_VISITS_PLACE(:placeID) OFFSET :start LIMIT :end - :start;",
+    PARAM(oatpp::Int32, placeID),
+    PARAM(oatpp::Int32, start),
+    PARAM(oatpp::Int32, end))
 
   QUERY(
     getVisitsByUser,
-    "SELECT * FROM F_GET_VISITS_USER(:userID);",
-    PARAM(oatpp::Int32, userID))
+    "SELECT * FROM F_GET_VISITS_USER(:userID) OFFSET :start LIMIT :end - :start;",
+    PARAM(oatpp::Int32, userID),
+    PARAM(oatpp::Int32, start),
+    PARAM(oatpp::Int32, end))
 
-  QUERY(getRanking, "SELECT * FROM F_GET_RANKING();")
+  QUERY(
+    getRanking,
+    "SELECT * FROM F_GET_RANKING() OFFSET :start LIMIT :end - :start;",
+    PARAM(oatpp::Int32, start),
+    PARAM(oatpp::Int32, end))
 
   QUERY(
     postVisitsValidate,
