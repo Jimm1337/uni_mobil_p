@@ -113,7 +113,7 @@ set_target_properties(uni_mobil_p-lib uni_mobil_p-exe uni_mobil_p-test PROPERTIE
 
 if(CMAKE_SYSTEM_NAME MATCHES Linux)
     find_package(Threads REQUIRED)
-    target_link_libraries(crud-lib INTERFACE Threads::Threads ${CMAKE_DL_LIBS})
+    target_link_libraries(uni_mobil_p-lib INTERFACE Threads::Threads ${CMAKE_DL_LIBS})
 endif()
 
 add_definitions(
