@@ -1,0 +1,8 @@
+cmake-build-*
+build
+.idea
+.gitignore
+.git
+README.md
+.gitattributes
+LICENSE

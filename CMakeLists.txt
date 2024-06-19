@@ -127,7 +127,7 @@ add_definitions(
         -DPG_CONNECTION_STRING="host=localhost port=5432 dbname=mobil_db user=Supervisor password=Supervisor"
 
         ## TODO: USE THIS TO SET URI OF THE SERVER
-        -DSERVER_URI="http://localhost:8000"
+        -DSERVER_URI="http://185.238.75.123:8000/"
 )
 
 ################ TESTS #################
