@@ -4,32 +4,20 @@
 This should not be deployed in production because of security issues.
 
 ## Description
-This is the complete back-end for a social app that allows users to share places they've visited, post comments on them, explore other places and track the user ranking.
+This is the complete social app that allows users to share places they've visited, post comments on them, explore other places and track the user ranking.
 
 ## Build and deploy
-### 0. Requirements
-- CMake
-- Ninja
-- GCC/Clang/MSVC
-- PostgreSQL
-
 ### 1. Setup database
 - Install postgres
-- Run `sql/MIGRATE_postgres_001.sql` as postgres
-- Run `sql/MIGRATE_mobil_001.sql` as Supervisor (password: Supervisor)
+- Run `sql/MIGRATE_postgres_001.sql` as postgres once
+- Run `sql/MIGRATE_mobil_001.sql` as Supervisor (password: Supervisor) once
 
-### 2. Build
+### 2. Docker
+- Install docker
 ```bash
-$ mkdir build && cd build
-$ cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_MAKE_PROGRAM=ninja
-$ ninja
+# docker build -t uni_mobil_p .
+# docker run -p 8080:8080 --expose 5432 uni_mobil_p
 ```
 
-### 3. Run
-```bash
-$ ./src/uni_mobil_p
-```
-
-### 4. Checkout the docs
-- [API Documentation - local (run the server first)](http://localhost:8000/swagger/ui)
+## Docs
 - [Authentication scheme](https://datatracker.ietf.org/doc/html/rfc7617)

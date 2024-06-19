@@ -86,7 +86,7 @@ public:
     const auto [status, response] = service.POST_login(authObject->userId);
     return createDtoResponse(status, response);
   }
-  ADD_CORS(postLogin, "*", "POST")
+  ADD_CORS(postLogin, "*", "GET, POST, PUT, DELETE")
 
   ENDPOINT_INFO(postRegister) {
     info->summary = "Register user.";
@@ -121,7 +121,7 @@ public:
       registerData->Username, registerData->Login, registerData->Password);
     return createDtoResponse(status, response);
   }
-  ADD_CORS(postRegister, "*", "POST")
+  ADD_CORS(postRegister, "*", "GET, POST, PUT, DELETE")
 
   ENDPOINT_INFO(getLogout) {
     info->summary = "Logout user.";
@@ -157,7 +157,7 @@ public:
     const auto [status, response] = service.GET_logout();
     return createDtoResponse(status, response);
   }
-  ADD_CORS(getLogout, "*", "GET")
+  ADD_CORS(getLogout, "*", "GET, POST, PUT, DELETE")
 
   // USER API ENDPOINTS --------------------------------------------------------
 
@@ -206,7 +206,7 @@ public:
 
     return createDtoResponse(status, response);
   }
-  ADD_CORS(getPlaces, "*", "GET")
+  ADD_CORS(getPlaces, "*", "GET, POST, PUT, DELETE")
 
   ENDPOINT_INFO(getUsers) {
     info->summary = "Get users by any unique data. Use one data field only. "
@@ -252,7 +252,7 @@ public:
 
     return createDtoResponse(status, response);
   }
-  ADD_CORS(getUsers, "*", "GET")
+  ADD_CORS(getUsers, "*", "GET, POST, PUT, DELETE")
 
   ENDPOINT_INFO(getCommentsForPlace) {
     info->summary =
@@ -300,7 +300,7 @@ public:
 
     return createDtoResponse(status, response);
   }
-  ADD_CORS(getCommentsForPlace, "*", "GET")
+  ADD_CORS(getCommentsForPlace, "*", "GET, POST, PUT, DELETE")
 
   ENDPOINT_INFO(getVisitsForPlace) {
     info->summary =
@@ -349,7 +349,7 @@ public:
 
     return createDtoResponse(status, response);
   }
-  ADD_CORS(getVisitsForPlace, "*", "GET")
+  ADD_CORS(getVisitsForPlace, "*", "GET, POST, PUT, DELETE")
 
   ENDPOINT_INFO(getVisitsForUser) {
     info->summary =
@@ -399,7 +399,7 @@ public:
 
     return createDtoResponse(status, response);
   }
-  ADD_CORS(getVisitsForUser, "*", "GET")
+  ADD_CORS(getVisitsForUser, "*", "GET, POST, PUT, DELETE")
 
   ENDPOINT_INFO(getUserRanking) {
     info->summary = "Get user ranking in range.";
@@ -440,7 +440,7 @@ public:
     const auto [status, response] = service.GET_ranking(start, end);
     return createDtoResponse(status, response);
   }
-  ADD_CORS(getUserRanking, "*", "GET")
+  ADD_CORS(getUserRanking, "*", "GET, POST, PUT, DELETE")
 
   ENDPOINT_INFO(postVisits) {
     info->summary = "Add visit to place by key for user.";
@@ -483,7 +483,7 @@ public:
       service.POST_visits(authObject->userId, key);
     return createDtoResponse(status, response);
   }
-  ADD_CORS(postVisits, "*", "POST")
+  ADD_CORS(postVisits, "*", "GET, POST, PUT, DELETE")
 
   ENDPOINT_INFO(postAddComments) {
     info->summary = "Add comment to place by placeID for user.";
@@ -528,7 +528,7 @@ public:
       authObject->userId, comment->PlaceID, comment->Content);
     return createDtoResponse(status, response);
   }
-  ADD_CORS(postAddComments, "*", "POST")
+  ADD_CORS(postAddComments, "*", "GET, POST, PUT, DELETE")
 
   // ADMIN API ENDPOINTS -------------------------------------------------------
 
@@ -586,7 +586,7 @@ public:
       place->Name, place->Description, place->Location, place->Key);
     return createDtoResponse(status, response);
   }
-  ADD_CORS(putAdminAddUpdatePlaces, "*", "PUT")
+  ADD_CORS(putAdminAddUpdatePlaces, "*", "GET, POST, PUT, DELETE")
 
   ENDPOINT_INFO(deleteAdminRemovePlaces) {
     info->summary = "Remove place from database.";
@@ -634,7 +634,7 @@ public:
     const auto [status, response] = service.DELETE_places(placeID);
     return createDtoResponse(status, response);
   }
-  ADD_CORS(deleteAdminRemovePlaces, "*", "DELETE")
+  ADD_CORS(deleteAdminRemovePlaces, "*", "GET, POST, PUT, DELETE")
 
   ENDPOINT_INFO(putAdminAddUpdateUsers) {
     info->summary = "Add or update user in database. Update when: matching "
@@ -688,7 +688,7 @@ public:
       user->Username, user->Login, user->Password, user->Admin, user->Points);
     return createDtoResponse(status, response);
   }
-  ADD_CORS(putAdminAddUpdateUsers, "*", "PUT")
+  ADD_CORS(putAdminAddUpdateUsers, "*", "GET, POST, PUT, DELETE")
 
   ENDPOINT_INFO(deleteAdminRemoveUsers) {
     info->summary = "Remove user from database.";
@@ -736,7 +736,7 @@ public:
     const auto [status, response] = service.DELETE_users(userID);
     return createDtoResponse(status, response);
   }
-  ADD_CORS(deleteAdminRemoveUsers, "*", "DELETE")
+  ADD_CORS(deleteAdminRemoveUsers, "*", "GET, POST, PUT, DELETE")
 
   ENDPOINT_INFO(putAdminAddUpdateComments) {
     info->summary = "Add or update comment in database. Update when: matching placeID and userID";
@@ -790,7 +790,7 @@ public:
       comment->UserID, comment->PlaceID, comment->Content, comment->Likes);
     return createDtoResponse(status, response);
   }
-  ADD_CORS(putAdminAddUpdateComments, "*", "PUT")
+  ADD_CORS(putAdminAddUpdateComments, "*", "GET, POST, PUT, DELETE")
 
   ENDPOINT_INFO(deleteAdminRemoveComments) {
     info->summary = "Remove comment from database.";
@@ -838,7 +838,7 @@ public:
     const auto [status, response] = service.DELETE_comments(commentID);
     return createDtoResponse(status, response);
   }
-  ADD_CORS(deleteAdminRemoveComments, "*", "DELETE")
+  ADD_CORS(deleteAdminRemoveComments, "*", "GET, POST, PUT, DELETE")
 
   ENDPOINT_INFO(putAdminAddUpdateVisits) {
     info->summary = "Add or update visit in database. Update when: matching "
@@ -893,7 +893,7 @@ public:
       service.PUT_visits(visit->UserID, visit->PlaceID);
     return createDtoResponse(status, response);
   }
-  ADD_CORS(putAdminAddUpdateVisits, "*", "PUT")
+  ADD_CORS(putAdminAddUpdateVisits, "*", "GET, POST, PUT, DELETE")
 
   ENDPOINT_INFO(deleteAdminRemoveVisits) {
     info->summary = "Remove visit from database.";
@@ -941,7 +941,7 @@ public:
     const auto [status, response] = service.DELETE_visits(visitID);
     return createDtoResponse(status, response);
   }
-  ADD_CORS(deleteAdminRemoveVisits, "*", "DELETE")
+  ADD_CORS(deleteAdminRemoveVisits, "*", "GET, POST, PUT, DELETE")
 };
 
 #include OATPP_CODEGEN_END(ApiController) //<-- End Codegen
