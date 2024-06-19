@@ -58,13 +58,13 @@ VALUES ('Example Place 0', 'Example place description 0', 'example place locatio
        ('Example Place 4', 'Example place description 4', 'example place location 4', 'example-key-4')
 ON CONFLICT (ID) DO NOTHING;
 
-INSERT INTO Users (Username, Login, Password, Admin)
+INSERT INTO Users (Username, Login, Password, Admin, Points)
 VALUES ('Admin 0', 'admin0', 'admin', TRUE),
-       ('Example User 0', 'example-user-0', 'example-password-0', FALSE),
-       ('Example User 1', 'example-user-1', 'example-password-1', FALSE),
-       ('Example User 2', 'example-user-2', 'example-password-2', FALSE),
-       ('Example User 3', 'example-user-3', 'example-password-3', FALSE),
-       ('Example User 4', 'example-user-4', 'example-password-4', FALSE)
+       ('Example User 0', 'example-user-0', 'example-password-0', FALSE, 2),
+       ('Example User 1', 'example-user-1', 'example-password-1', FALSE, 2),
+       ('Example User 2', 'example-user-2', 'example-password-2', FALSE, 2),
+       ('Example User 3', 'example-user-3', 'example-password-3', FALSE, 2),
+       ('Example User 4', 'example-user-4', 'example-password-4', FALSE, 2)
 ON CONFLICT (ID) DO NOTHING;
 
 INSERT INTO Comments (UserID, PlaceID, Content, TimeStmp)

@@ -21,3 +21,4 @@ This is the complete social app that allows users to share places they've visite
 
 ## Docs
 - [Authentication scheme](https://datatracker.ietf.org/doc/html/rfc7617)
+- [OAS 3.0 Specification](docs/oas-3.0.0.json)
